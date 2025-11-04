@@ -17,7 +17,8 @@ import { getCookie, getRequest } from '@tanstack/react-start/server'
 import { ConvexBetterAuthProvider } from '@convex-dev/better-auth/react'
 import { fetchSession, getCookieName } from '@convex-dev/better-auth/react-start'
 import { authClient } from "~/lib/auth-client";
-import UserMenu from "~/components/user-menu";
+import UserMenu from "~/components/app/user-menu";
+import { DarkModeToggle } from "~/components/app/mode-toggle";
 
 // Get auth information for SSR using available cookies
 const fetchAuth = createServerFn({ method: 'GET' }).handler(async () => {
@@ -83,18 +84,37 @@ function RootComponent() {
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                const stored = localStorage.getItem('theme');
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                const shouldUseDark = stored === 'dark' || (!stored && prefersDark);
+                if (shouldUseDark) {
+                  document.documentElement.classList.add('dark');
+                }
+              })();
+            `,
+          }}
+        />
         <HeadContent />
       </head>
-      <body className="bg-neutral-950 text-neutral-50">
-        <nav style={{ padding: '1rem', borderBottom: '1px solid #333', marginBottom: '2rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '2rem' }}>
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-              <Link to="/" style={{ textDecoration: 'none', color: '#fff' }}>Home</Link>
-              <Link to="/about" style={{ textDecoration: 'none', color: '#fff' }}>About</Link>
+      <body>
+        <nav 
+          className="px-4 py-4 border-b mb-8 transition-colors duration-300"
+          style={{ borderColor: 'hsl(var(--border))' }}
+        >
+          <div className="flex justify-between items-center gap-8">
+            <div className="flex gap-4 items-center">
+              <Link to="/">Home</Link>
+              <Link to="/about">About</Link>
+              <Link to="/tasks">Tasks</Link>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
+            <div className="flex items-center gap-4">
+              <DarkModeToggle />
               <UserMenu />
             </div>
           </div>

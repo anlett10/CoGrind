@@ -45,16 +45,30 @@
     --input: 240 3.7% 15.9%;
     --ring: 240 4.9% 83.9%;
   }
+
+  * {
+    border-color: hsl(var(--border));
+  }
 }
 
 body {
   font-family:
     Gordita, Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue',
     sans-serif;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 a {
   margin-right: 1rem;
+  color: hsl(var(--foreground));
+  text-decoration: none;
+  transition: opacity 0.2s ease;
+}
+
+a:hover {
+  opacity: 0.7;
 }
 
 main {
@@ -66,6 +80,8 @@ main {
 /* Basic resets and utilities */
 * {
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 button {
