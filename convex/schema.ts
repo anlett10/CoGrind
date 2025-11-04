@@ -12,5 +12,8 @@ export default defineSchema({
     hrs: v.optional(v.number()),
     startedAt: v.optional(v.number()),
     completedAt: v.optional(v.number()),
+    sharedWith: v.optional(v.string()), // JSON string of email addresses
+    selectedBy: v.optional(v.string()), // JSON string: {"email@example.com": timestamp, ...}
+    selectedAt: v.optional(v.number()), // DEPRECATED: Old field, will be removed after migration
   }).index('by_user', ['userId']),
 })

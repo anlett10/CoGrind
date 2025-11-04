@@ -1,14 +1,16 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { api } from 'convex/_generated/api'
-import { useConvexQuery } from '@convex-dev/react-query'
+import { useConvexQuery, useConvexMutation } from '@convex-dev/react-query'
 import { useState } from 'react'
+import { Id } from 'convex/_generated/dataModel'
 import authClient from '~/lib/auth-client'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
 import { Link } from '@tanstack/react-router'
-import { Plus, CheckCircle2, LogIn } from 'lucide-react'
+import { Plus, CheckCircle2, LogIn, Pencil, Trash2 } from 'lucide-react'
 import { Badge } from '~/components/ui/badge'
 import { AddTaskModal } from '~/components/app/add-task-modal'
+import { EditTaskModal } from '~/components/app/edit-task-modal'
 
 export const Route = createFileRoute('/tasks')({
   component: RouteComponent,
@@ -24,16 +26,49 @@ type Task = {
   hrs?: number
   startedAt?: number
   completedAt?: number
+  sharedWith?: string
+  selectedBy?: string
+}
+
+// Type for edit modal (needs Id type)
+type TaskForEdit = {
+  _id: string
+  text: string
+  details: string
+  priority?: string
+  status?: string
+  hrs?: number
+  sharedWith?: string
 }
 
 function RouteComponent() {
   const { data: session, isPending: sessionPending } = authClient.useSession()
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [editingTask, setEditingTask] = useState<TaskForEdit | null>(null)
 
   const tasks = useConvexQuery(
     api.tasks.listTasks,
     {}
   ) as Task[] | undefined
+
+  const deleteTask = useConvexMutation(api.tasks.deleteTask)
+
+  // Helper to check if task is shared (not owned by current user)
+  const isTaskShared = (task: Task) => {
+    return task.userId !== session?.user?.id
+  }
+
+  // Helper to parse and get shared emails
+  const getSharedEmails = (sharedWith?: string): string[] => {
+    if (!sharedWith) return []
+    try {
+      const emails = JSON.parse(sharedWith)
+      return Array.isArray(emails) ? emails : []
+    } catch {
+      return []
+    }
+  }
 
   if (sessionPending) {
     return (
@@ -247,21 +282,89 @@ function RouteComponent() {
                           marginBottom: '0.5rem',
                           flexWrap: 'wrap'
                         }}>
-                          <h3 style={{ 
-                            fontSize: '1.15rem', 
-                            fontWeight: '600', 
-                            color: '#111827',
-                            wordBreak: 'break-word',
-                            flex: 1,
-                            minWidth: '200px'
-                          }}>
-                            {task.text}
-                          </h3>
+                          <div style={{ flex: 1, minWidth: '200px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
+                              <h3 style={{ 
+                                fontSize: '1.15rem', 
+                                fontWeight: '600', 
+                                color: '#111827',
+                                wordBreak: 'break-word',
+                                margin: 0
+                              }}>
+                                {task.text}
+                              </h3>
+                              {isTaskShared(task) && (
+                                <Badge variant="outline" style={{ fontSize: '0.7rem', padding: '0.125rem 0.5rem' }}>
+                                  Shared
+                                </Badge>
+                              )}
+                            </div>
+                            {getSharedEmails(task.sharedWith).length > 0 && (
+                              <p style={{ 
+                                fontSize: '0.75rem', 
+                                color: '#6b7280',
+                                margin: 0,
+                                wordBreak: 'break-word'
+                              }}>
+                                Shared with: {getSharedEmails(task.sharedWith).join(", ")}
+                              </p>
+                            )}
+                          </div>
                           <div style={{ 
                             display: 'flex',
                             gap: '0.5rem',
-                            flexWrap: 'wrap'
+                            flexWrap: 'wrap',
+                            alignItems: 'center'
                           }}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setEditingTask({
+                                  _id: task._id,
+                                  text: task.text,
+                                  details: task.details,
+                                  priority: task.priority,
+                                  status: task.status,
+                                  hrs: task.hrs,
+                                  sharedWith: task.sharedWith
+                                })
+                                setIsEditModalOpen(true)
+                              }}
+                              style={{
+                                width: '32px',
+                                height: '32px',
+                                padding: 0,
+                                flexShrink: 0
+                              }}
+                              title="Edit task"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={async () => {
+                                if (window.confirm(`Are you sure you want to delete "${task.text}"? This action cannot be undone.`)) {
+                                  try {
+                                    await deleteTask({ taskId: task._id as Id<"tasks"> })
+                                  } catch (error) {
+                                    console.error('Failed to delete task:', error)
+                                    alert('Failed to delete task. Please try again.')
+                                  }
+                                }
+                              }}
+                              style={{
+                                width: '32px',
+                                height: '32px',
+                                padding: 0,
+                                flexShrink: 0,
+                                color: '#ef4444'
+                              }}
+                              title="Delete task"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                             {task.priority && (() => {
                               const priorityLower = String(task.priority).toLowerCase().trim();
                               let variant: 'destructive' | 'default' | 'secondary' = 'secondary';
@@ -368,6 +471,16 @@ function RouteComponent() {
       </div>
 
       <AddTaskModal open={isModalOpen} onOpenChange={setIsModalOpen} />
+      <EditTaskModal 
+        open={isEditModalOpen} 
+        onOpenChange={(open) => {
+          setIsEditModalOpen(open)
+          if (!open) {
+            setEditingTask(null)
+          }
+        }}
+        task={editingTask}
+      />
     </main>
   )
 }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -11,16 +11,27 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { useConvexMutation } from "@convex-dev/react-query";
 import { api } from "convex/_generated/api";
+import { Id } from "convex/_generated/dataModel";
 
-interface AddTaskModalProps {
+interface EditTaskModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  task: {
+    _id: string;
+    text: string;
+    details: string;
+    priority?: string;
+    status?: string;
+    hrs?: number;
+    sharedWith?: string;
+  } | null;
 }
 
-export function AddTaskModal({
+export function EditTaskModal({
   open,
   onOpenChange,
-}: AddTaskModalProps) {
+  task,
+}: EditTaskModalProps) {
   const [text, setText] = useState("");
   const [details, setDetails] = useState("");
   const [priority, setPriority] = useState("medium");
@@ -29,12 +40,35 @@ export function AddTaskModal({
   const [sharedEmails, setSharedEmails] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const createTask = useConvexMutation(api.tasks.createTask);
+  const updateTask = useConvexMutation(api.tasks.updateTask);
+
+  // Initialize form with task data when task changes
+  useEffect(() => {
+    if (task) {
+      setText(task.text || "");
+      setDetails(task.details || "");
+      setPriority(task.priority || "medium");
+      setStatus(task.status || "todo");
+      setHrs(task.hrs?.toString() || "1");
+      
+      // Parse sharedWith JSON string to display emails
+      if (task.sharedWith) {
+        try {
+          const emails = JSON.parse(task.sharedWith);
+          setSharedEmails(Array.isArray(emails) ? emails.join(", ") : "");
+        } catch {
+          setSharedEmails("");
+        }
+      } else {
+        setSharedEmails("");
+      }
+    }
+  }, [task]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!text.trim()) {
+    if (!text.trim() || !task) {
       return;
     }
 
@@ -47,7 +81,8 @@ export function AddTaskModal({
         .filter((email) => email.length > 0 && email.includes("@"));
       const sharedWithJson = emails.length > 0 ? JSON.stringify(emails) : undefined;
 
-      await createTask({
+      await updateTask({
+        taskId: task._id as Id<"tasks">,
         text: text.trim(),
         details: details.trim() || "",
         priority,
@@ -56,18 +91,10 @@ export function AddTaskModal({
         sharedWith: sharedWithJson,
       });
       
-      // Reset form
-      setText("");
-      setDetails("");
-      setPriority("medium");
-      setStatus("todo");
-      setHrs("1");
-      setSharedEmails("");
-      
       // Close modal
       onOpenChange(false);
     } catch (error) {
-      console.error("Failed to create task:", error);
+      console.error("Failed to update task:", error);
     } finally {
       setIsSubmitting(false);
     }
@@ -75,35 +102,33 @@ export function AddTaskModal({
 
   const handleClose = () => {
     if (!isSubmitting) {
-      setText("");
-      setDetails("");
-      setPriority("medium");
-      setStatus("todo");
-      setHrs("1");
-      setSharedEmails("");
       onOpenChange(false);
     }
   };
+
+  if (!task) {
+    return null;
+  }
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <span>Add New Task</span>
+            <span>Edit Task</span>
           </DialogTitle>
           <DialogDescription>
-            Create a new task to track your progress
+            Update task details
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <label htmlFor="task-text" className="text-sm font-medium">
+              <label htmlFor="edit-task-text" className="text-sm font-medium">
                 Task Name <span className="text-destructive">*</span>
               </label>
               <Input
-                id="task-text"
+                id="edit-task-text"
                 type="text"
                 placeholder="Enter task name..."
                 value={text}
@@ -114,11 +139,11 @@ export function AddTaskModal({
             </div>
             
             <div className="grid gap-2">
-              <label htmlFor="task-details" className="text-sm font-medium">
+              <label htmlFor="edit-task-details" className="text-sm font-medium">
                 Task Details
               </label>
               <textarea
-                id="task-details"
+                id="edit-task-details"
                 placeholder="Enter task details (optional)..."
                 value={details}
                 onChange={(e) => setDetails(e.target.value)}
@@ -130,11 +155,11 @@ export function AddTaskModal({
 
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <label htmlFor="task-priority" className="text-sm font-medium">
+                <label htmlFor="edit-task-priority" className="text-sm font-medium">
                   Priority
                 </label>
                 <select
-                  id="task-priority"
+                  id="edit-task-priority"
                   value={priority}
                   onChange={(e) => setPriority(e.target.value)}
                   disabled={isSubmitting}
@@ -147,11 +172,11 @@ export function AddTaskModal({
               </div>
               
               <div className="grid gap-2">
-                <label htmlFor="task-status" className="text-sm font-medium">
+                <label htmlFor="edit-task-status" className="text-sm font-medium">
                   Status
                 </label>
                 <select
-                  id="task-status"
+                  id="edit-task-status"
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
                   disabled={isSubmitting}
@@ -165,11 +190,11 @@ export function AddTaskModal({
             </div>
 
             <div className="grid gap-2">
-              <label htmlFor="task-hrs" className="text-sm font-medium">
+              <label htmlFor="edit-task-hrs" className="text-sm font-medium">
                 Estimated Hours
               </label>
               <Input
-                id="task-hrs"
+                id="edit-task-hrs"
                 type="number"
                 step="0.5"
                 min="0.5"
@@ -181,11 +206,11 @@ export function AddTaskModal({
             </div>
 
             <div className="grid gap-2">
-              <label htmlFor="task-shared" className="text-sm font-medium">
+              <label htmlFor="edit-task-shared" className="text-sm font-medium">
                 Share with (emails)
               </label>
               <Input
-                id="task-shared"
+                id="edit-task-shared"
                 type="text"
                 placeholder="user1@example.com, user2@example.com"
                 value={sharedEmails}
@@ -207,7 +232,7 @@ export function AddTaskModal({
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting || !text.trim()}>
-              {isSubmitting ? "Adding..." : "Add Task"}
+              {isSubmitting ? "Updating..." : "Update Task"}
             </Button>
           </DialogFooter>
         </form>

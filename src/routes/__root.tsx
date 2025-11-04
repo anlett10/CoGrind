@@ -112,6 +112,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
               <Link to="/">Home</Link>
               <Link to="/about">About</Link>
               <Link to="/tasks">Tasks</Link>
+              <Link to="/live">Live</Link>
             </div>
             <div className="flex items-center gap-4">
               <DarkModeToggle />
