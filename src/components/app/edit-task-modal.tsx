@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react"
 import {
   Dialog,
   DialogContent,
@@ -6,81 +6,76 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "~/components/ui/dialog";
-import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
-import { useConvexMutation } from "@convex-dev/react-query";
-import { api } from "convex/_generated/api";
-import { Id } from "convex/_generated/dataModel";
+} from "~/components/ui/dialog"
+import { Button } from "~/components/ui/button"
+import { Input } from "~/components/ui/input"
+import { useConvexMutation, useConvexQuery } from "@convex-dev/react-query"
+import { api } from "convex/_generated/api"
+import { Id } from "convex/_generated/dataModel"
+import { Label } from "~/components/ui/label"
+import { Clock, Flag, Link2 } from "lucide-react"
 
 interface EditTaskModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  open: boolean
+  onOpenChange: (open: boolean) => void
   task: {
-    _id: string;
-    text: string;
-    details: string;
-    priority?: string;
-    status?: string;
-    hrs?: number;
-    sharedWith?: string;
-  } | null;
+    _id: string
+    text: string
+    details: string
+    priority?: string
+    status?: string
+    hrs?: number
+    refLink?: string
+    projectId?: Id<"projects">
+  } | null
 }
 
-export function EditTaskModal({
-  open,
-  onOpenChange,
-  task,
-}: EditTaskModalProps) {
-  const [text, setText] = useState("");
-  const [details, setDetails] = useState("");
-  const [priority, setPriority] = useState("medium");
-  const [status, setStatus] = useState("todo");
-  const [hrs, setHrs] = useState("1");
-  const [sharedEmails, setSharedEmails] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+const PRIORITY_OPTIONS = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+]
 
-  const updateTask = useConvexMutation(api.tasks.updateTask);
+const STATUS_OPTIONS = [
+  { value: "todo", label: "To do" },
+  { value: "in-progress", label: "In progress" },
+  { value: "done", label: "Done" },
+]
 
-  // Initialize form with task data when task changes
+export function EditTaskModal({ open, onOpenChange, task }: EditTaskModalProps) {
+  const [text, setText] = useState("")
+  const [details, setDetails] = useState("")
+  const [priority, setPriority] = useState("medium")
+  const [status, setStatus] = useState("todo")
+  const [hrs, setHrs] = useState("1")
+  const [refLink, setRefLink] = useState("")
+  const [selectedProjectId, setSelectedProjectId] = useState<Id<"projects"> | "">("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const updateTask = useConvexMutation(api.tasks.updateTask)
+
+  const projects = useConvexQuery(api.projects.listProjects, {}) as
+    | Array<{ _id: Id<"projects">; name: string; id: string }>
+    | undefined
+
   useEffect(() => {
-    if (task) {
-      setText(task.text || "");
-      setDetails(task.details || "");
-      setPriority(task.priority || "medium");
-      setStatus(task.status || "todo");
-      setHrs(task.hrs?.toString() || "1");
-      
-      // Parse sharedWith JSON string to display emails
-      if (task.sharedWith) {
-        try {
-          const emails = JSON.parse(task.sharedWith);
-          setSharedEmails(Array.isArray(emails) ? emails.join(", ") : "");
-        } catch {
-          setSharedEmails("");
-        }
-      } else {
-        setSharedEmails("");
-      }
-    }
-  }, [task]);
+    if (!task || !open) return
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!text.trim() || !task) {
-      return;
-    }
+    setText(task.text || "")
+    setDetails(task.details || "")
+    setPriority(task.priority || "medium")
+    setStatus(task.status || "todo")
+    setHrs(task.hrs?.toString() || "1")
+    setRefLink(task.refLink || "")
+    setSelectedProjectId(task.projectId || "")
+  }, [task, open])
 
-    setIsSubmitting(true);
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!task || !text.trim()) return
+
+    setIsSubmitting(true)
     try {
-      // Parse shared emails (comma-separated) and convert to JSON string
-      const emails = sharedEmails
-        .split(",")
-        .map((email) => email.trim())
-        .filter((email) => email.length > 0 && email.includes("@"));
-      const sharedWithJson = emails.length > 0 ? JSON.stringify(emails) : undefined;
-
       await updateTask({
         taskId: task._id as Id<"tasks">,
         text: text.trim(),
@@ -88,156 +83,176 @@ export function EditTaskModal({
         priority,
         status,
         hrs: parseFloat(hrs) || 1,
-        sharedWith: sharedWithJson,
-      });
-      
-      // Close modal
-      onOpenChange(false);
-    } catch (error) {
-      console.error("Failed to update task:", error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+        refLink: refLink.trim() || "",
+        projectId: (selectedProjectId || task.projectId) as Id<"projects"> | undefined,
+      })
 
-  const handleClose = () => {
-    if (!isSubmitting) {
-      onOpenChange(false);
+      onOpenChange(false)
+    } catch (error) {
+      console.error("Failed to update task:", error)
+    } finally {
+      setIsSubmitting(false)
     }
-  };
+  }
+
+  const handleClose = (nextOpen: boolean) => {
+    if (!nextOpen && !isSubmitting) {
+      onOpenChange(false)
+      return
+    }
+    if (nextOpen) {
+      onOpenChange(true)
+    }
+  }
 
   if (!task) {
-    return null;
+    return null
   }
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <span>Edit Task</span>
-          </DialogTitle>
-          <DialogDescription>
-            Update task details
-          </DialogDescription>
+          <DialogTitle>Edit Task</DialogTitle>
+          <DialogDescription>Update the task information below.</DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <label htmlFor="edit-task-text" className="text-sm font-medium">
-                Task Name <span className="text-destructive">*</span>
-              </label>
-              <Input
-                id="edit-task-text"
-                type="text"
-                placeholder="Enter task name..."
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                required
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="space-y-2">
+            <Label htmlFor="edit-task-text" className="text-sm font-medium">
+              Task Name <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="edit-task-text"
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              required
+              disabled={isSubmitting}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="edit-task-details" className="text-sm font-medium">
+              Details
+            </Label>
+            <textarea
+              id="edit-task-details"
+              value={details}
+              onChange={(event) => setDetails(event.target.value)}
+              rows={4}
+              disabled={isSubmitting}
+              className="w-full rounded-lg border border-input bg-background px-4 py-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="edit-task-priority" className="flex items-center gap-2 text-sm font-medium">
+                <Flag className="h-4 w-4 text-muted-foreground" />
+                Priority
+              </Label>
+              <select
+                id="edit-task-priority"
+                value={priority}
+                onChange={(event) => setPriority(event.target.value)}
                 disabled={isSubmitting}
-              />
-            </div>
-            
-            <div className="grid gap-2">
-              <label htmlFor="edit-task-details" className="text-sm font-medium">
-                Task Details
-              </label>
-              <textarea
-                id="edit-task-details"
-                placeholder="Enter task details (optional)..."
-                value={details}
-                onChange={(e) => setDetails(e.target.value)}
-                disabled={isSubmitting}
-                rows={3}
-                className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
-              />
+                className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {PRIORITY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <label htmlFor="edit-task-priority" className="text-sm font-medium">
-                  Priority
-                </label>
-                <select
-                  id="edit-task-priority"
-                  value={priority}
-                  onChange={(e) => setPriority(e.target.value)}
-                  disabled={isSubmitting}
-                  className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-              </div>
-              
-              <div className="grid gap-2">
-                <label htmlFor="edit-task-status" className="text-sm font-medium">
-                  Status
-                </label>
-                <select
-                  id="edit-task-status"
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                  disabled={isSubmitting}
-                  className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <option value="todo">To Do</option>
-                  <option value="in-progress">In Progress</option>
-                  <option value="done">Done</option>
-                </select>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-task-status" className="flex items-center gap-2 text-sm font-medium">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                Status
+              </Label>
+              <select
+                id="edit-task-status"
+                value={status}
+                onChange={(event) => setStatus(event.target.value)}
+                disabled={isSubmitting}
+                className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
+          </div>
 
-            <div className="grid gap-2">
-              <label htmlFor="edit-task-hrs" className="text-sm font-medium">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="edit-task-hrs" className="text-sm font-medium">
                 Estimated Hours
-              </label>
+              </Label>
               <Input
                 id="edit-task-hrs"
                 type="number"
-                step="0.5"
-                min="0.5"
-                placeholder="1"
+                min="0.25"
+                step="0.25"
                 value={hrs}
-                onChange={(e) => setHrs(e.target.value)}
+                onChange={(event) => setHrs(event.target.value)}
                 disabled={isSubmitting}
               />
             </div>
 
-            <div className="grid gap-2">
-              <label htmlFor="edit-task-shared" className="text-sm font-medium">
-                Share with (emails)
-              </label>
-              <Input
-                id="edit-task-shared"
-                type="text"
-                placeholder="user1@example.com, user2@example.com"
-                value={sharedEmails}
-                onChange={(e) => setSharedEmails(e.target.value)}
+            <div className="space-y-2">
+              <Label htmlFor="edit-task-project" className="text-sm font-medium">
+                Project
+              </Label>
+              <select
+                id="edit-task-project"
+                value={selectedProjectId || ""}
+                onChange={(event) => {
+                  const value = event.target.value
+                  setSelectedProjectId(value ? (value as Id<"projects">) : "")
+                }}
                 disabled={isSubmitting}
-              />
-              <p className="text-xs text-muted-foreground">
-                Enter comma-separated email addresses to share this task
-              </p>
+                className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="">No project</option>
+                {projects?.map((project) => (
+                  <option key={project._id} value={project._id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleClose}
+
+          <div className="space-y-2">
+            <Label htmlFor="edit-task-ref" className="flex items-center gap-2 text-sm font-medium">
+              <Link2 className="h-4 w-4 text-muted-foreground" />
+              Reference Link
+              <span className="text-xs text-muted-foreground">(optional)</span>
+            </Label>
+            <Input
+              id="edit-task-ref"
+              type="url"
+              value={refLink}
+              onChange={(event) => setRefLink(event.target.value)}
               disabled={isSubmitting}
-            >
+              placeholder="https://example.com/reference"
+            />
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => handleClose(false)} disabled={isSubmitting}>
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting || !text.trim()}>
-              {isSubmitting ? "Updating..." : "Update Task"}
+              {isSubmitting ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
-  );
+  )
 }
-

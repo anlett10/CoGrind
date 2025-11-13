@@ -1,11 +1,10 @@
 /// <reference types="vite/client" />
 import * as React from 'react'
-import appCss from '~/styles/app.css?url'
+import '~/styles/app.css'
 import {
   Outlet,
   createRootRouteWithContext,
   HeadContent,
-  Link,
   Scripts,
   useRouteContext, 
 } from '@tanstack/react-router'
@@ -17,8 +16,7 @@ import { getCookie, getRequest } from '@tanstack/react-start/server'
 import { ConvexBetterAuthProvider } from '@convex-dev/better-auth/react'
 import { fetchSession, getCookieName } from '@convex-dev/better-auth/react-start'
 import { authClient } from "~/lib/auth-client";
-import UserMenu from "~/components/app/user-menu";
-import { DarkModeToggle } from "~/components/app/mode-toggle";
+import { AppHeader } from "~/components/app/app-header";
 
 // Get auth information for SSR using available cookies
 const fetchAuth = createServerFn({ method: 'GET' }).handler(async () => {
@@ -48,7 +46,6 @@ export const Route = createRootRouteWithContext<{
       },
     ],
     links: [
-      { rel: 'stylesheet', href: appCss },
       { rel: 'icon', href: '/favicon.ico' },
     ],
   }),
@@ -84,7 +81,7 @@ function RootComponent() {
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className="h-full">
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -102,25 +99,11 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         />
         <HeadContent />
       </head>
-      <body>
-        <nav 
-          className="px-4 py-4 border-b mb-8 transition-colors duration-300"
-          style={{ borderColor: 'hsl(var(--border))' }}
-        >
-          <div className="flex justify-between items-center gap-8">
-            <div className="flex gap-4 items-center">
-              <Link to="/">Home</Link>
-              <Link to="/about">About</Link>
-              <Link to="/tasks">Tasks</Link>
-              <Link to="/live">Live</Link>
-            </div>
-            <div className="flex items-center gap-4">
-              <DarkModeToggle />
-              <UserMenu />
-            </div>
-          </div>
-        </nav>
-        {children}
+      <body className="h-full">
+        <AppHeader />
+        <main className="w-full">
+          {children}
+        </main>
         <Scripts />
       </body>
     </html>
