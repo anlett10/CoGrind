@@ -66,17 +66,19 @@ export const updateUsername = mutation({
 
     // Update the user
     await ctx.runMutation(components.betterAuth.adapter.updateOne, {
-      model: "user",
-      where: [
-        {
-          field: "userId",
-          operator: "eq",
-          value: userId,
+      input: {
+        model: "user",
+        where: [
+          {
+            field: "userId",
+            operator: "eq",
+            value: userId,
+          },
+        ],
+        update: {
+          username,
+          displayUsername: username,
         },
-      ],
-      update: {
-        username,
-        displayUsername: username,
       },
     });
 

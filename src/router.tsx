@@ -21,6 +21,10 @@ export function getRouter() {
       queries: {
         queryKeyHashFn: convexQueryClient.hashFn(),
         queryFn: convexQueryClient.queryFn(),
+        staleTime: 30000, // Consider data fresh for 30 seconds
+        refetchOnWindowFocus: false, // Disable refetch on window focus to reduce updates
+        refetchOnReconnect: true, // Still refetch on reconnect
+        refetchOnMount: false, // Don't refetch on mount if data exists
       },
     },
   })

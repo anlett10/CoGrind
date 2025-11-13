@@ -1,6 +1,7 @@
 import { useMemo, useState, type Dispatch, type SetStateAction, type CSSProperties } from "react"
 import type { Id } from "convex/_generated/dataModel"
 import { Link2, MoreVertical, Pencil, Trash2, Users, Share2, Clock } from "lucide-react"
+import { TaskRefinementSection } from "./task-refinement-section"
 
 import { cn } from "~/lib/utils"
 import {
@@ -70,6 +71,8 @@ interface TaskCardProps {
   onEditFormChange?: Dispatch<SetStateAction<TaskEditForm>>
   runningTimeLabel?: string | null
   isRunning?: boolean
+  showRefinement?: boolean
+  currentUserId?: string
 }
 
 const PRIORITY_LABELS: Record<string, string> = {
@@ -132,6 +135,8 @@ export function TaskCard({
   onEditFormChange,
   runningTimeLabel,
   isRunning,
+  showRefinement = false,
+  currentUserId,
 }: TaskCardProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
 
@@ -472,11 +477,20 @@ export function TaskCard({
             <p className="text-sm text-muted-foreground leading-relaxed">
               {task.details}
             </p>
-            {sharedEmails.length > 0 && (
-              <p className="mt-3 text-xs text-muted-foreground">
-                Shared with: {sharedEmails.join(", ")}
-              </p>
+          </div>
+        )}
+
+        {sharedEmails.length > 0 && (
+          <div
+            className={cn(
+              "border-b border-slate-200 dark:border-slate-800",
+              !task.details && "pt-4"
             )}
+            style={{ paddingBottom: "16px", margin: 0 }}
+          >
+            <p className="text-xs text-muted-foreground">
+              Shared with: {sharedEmails.join(", ")}
+            </p>
           </div>
         )}
 
@@ -520,6 +534,15 @@ export function TaskCard({
             </button>
           )}
         </div>
+
+        {/* Refinement Section - Only show for shared tasks */}
+        {showRefinement && sharedEmails.length > 0 && currentUserId && (
+          <TaskRefinementSection
+            taskId={task._id as Id<"tasks">}
+            isOwner={isOwner}
+            currentUserId={currentUserId}
+          />
+        )}
       </div>
     </div>
   )

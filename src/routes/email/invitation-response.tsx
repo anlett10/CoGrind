@@ -29,7 +29,7 @@ function InvitationResponse() {
   useEffect(() => {
     if (!token) {
       toast.error("Invalid or missing invitation token.");
-      navigate({ to: "/projects" });
+      navigate({ to: "/project" });
       return;
     }
 
@@ -48,7 +48,7 @@ function InvitationResponse() {
         toast.error(message);
       } finally {
         setTimeout(() => {
-          navigate({ to: "/projects" });
+          navigate({ to: "/project" });
         }, 2000);
       }
     };
@@ -69,7 +69,7 @@ function InvitationResponse() {
           <p className="text-sm text-gray-600 dark:text-gray-400">
             We&apos;re finishing up. You&apos;ll be redirected to your projects shortly.
           </p>
-          <Button onClick={() => navigate({ to: "/projects" })} variant="outline" className="w-full">
+          <Button onClick={() => navigate({ to: "/project" })} variant="outline" className="w-full">
             Go to Projects
           </Button>
         </CardContent>

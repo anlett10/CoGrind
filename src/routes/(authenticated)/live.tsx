@@ -78,13 +78,12 @@ type Collaborator = {
 
 const formatDuration = (milliseconds: number | undefined) => {
   if (!milliseconds || milliseconds <= 0) {
-    return '00:00:00'
+    return '00:00'
   }
   const totalSeconds = Math.floor(milliseconds / 1000)
   const hours = Math.floor(totalSeconds / 3600)
   const minutes = Math.floor((totalSeconds % 3600) / 60)
-  const seconds = totalSeconds % 60
-  return [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':')
+  return [hours, minutes].map((value) => String(value).padStart(2, '0')).join(':')
 }
 
 function RouteComponent() {
@@ -97,7 +96,8 @@ function RouteComponent() {
   const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
-    const interval = window.setInterval(() => setNow(Date.now()), 1000)
+    // Throttle updates to every 1 minute to reduce re-renders and improve performance
+    const interval = window.setInterval(() => setNow(Date.now()), 60000)
     return () => window.clearInterval(interval)
   }, [])
 

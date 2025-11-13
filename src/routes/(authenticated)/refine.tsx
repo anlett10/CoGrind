@@ -1,17 +1,19 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { api } from 'convex/_generated/api'
-import { useConvexQuery } from '@convex-dev/react-query'
+import { useConvexQuery, useConvexMutation } from '@convex-dev/react-query'
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { Id } from 'convex/_generated/dataModel'
 import { useSession } from './route'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent } from '~/components/ui/card'
-import { AlertCircle, ArrowUpRight, Github, ListTodo, Loader2, Pencil } from 'lucide-react'
 import { Badge } from '~/components/ui/badge'
-import { EditTaskModal } from '~/components/app/edit-task-modal'
+import { AlertCircle, ArrowUpRight, Github, ListTodo, Loader2, User, Users, MessageSquare, GitBranch } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
 import { AddTaskModal } from '~/components/app/add-task-modal'
+import { TaskCard, type TaskCardTask, type TaskEditForm, type TaskCardProject } from '~/components/app/task-card'
+import { toast } from 'sonner'
+import { cn } from '~/lib/utils'
 
 export const Route = createFileRoute('/(authenticated)/refine')({
   component: RouteComponent,
@@ -19,6 +21,7 @@ export const Route = createFileRoute('/(authenticated)/refine')({
 
 type Task = {
   _id: string
+  _creationTime?: number
   userId: string
   text: string
   details: string
@@ -27,22 +30,12 @@ type Task = {
   hrs?: number
   startedAt?: number
   completedAt?: number
+  trackedTimeMs?: number
   sharedWith?: string
   selectedBy?: string
   updatedAt?: number
   refLink?: string
-}
-
-// Type for edit modal
-type TaskForEdit = {
-  _id: string
-  text: string
-  details: string
-  priority?: string
-  status?: string
-  hrs?: number
-  sharedWith?: string
-  refLink?: string
+  projectId?: Id<'projects'>
 }
 
 type PrefillTask = {
@@ -59,6 +52,15 @@ type Project = {
   type?: string
   githubUrl?: string
   githubRepo?: string
+}
+
+type Collaborator = {
+  _id: Id<'projectCollaborators'>
+  projectId: Id<'projects'>
+  userId?: string
+  email: string
+  role: string
+  userName?: string
 }
 
 type GitHubIssue = {
@@ -154,11 +156,27 @@ function formatRelativeTime(dateInput: string): string {
 
 function RouteComponent() {
   const session = useSession()
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [editingTask, setEditingTask] = useState<TaskForEdit | null>(null)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [addTaskPrefill, setAddTaskPrefill] = useState<PrefillTask | null>(null)
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
+  const [editTaskForm, setEditTaskForm] = useState<TaskEditForm>({
+    text: "",
+    details: "",
+    priority: "low",
+    hrs: 1,
+    refLink: "",
+    projectId: "" as Id<"projects"> | "",
+    sharedWith: "",
+  })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [now, setNow] = useState(() => Date.now())
+  const [viewMode, setViewMode] = useState<'owner' | 'collaborator'>('collaborator')
   const queryClient = useQueryClient()
+
+  const updateTask = useConvexMutation(api.tasks.updateTask)
+  const deleteTask = useConvexMutation(api.tasks.deleteTask)
+  const shareTaskWithCollaborators = useConvexMutation((api.tasks as any).shareTaskWithCollaborators)
+  const unshareTaskMutation = useConvexMutation((api.tasks as any).unshareTask)
 
   const tasks = useConvexQuery(
     api.tasks.listTasks,
@@ -169,6 +187,73 @@ function RouteComponent() {
     api.projects.listProjects,
     {}
   ) as Project[] | undefined
+
+  const allCollaborators = useConvexQuery(
+    api.projects.getAllCollaborators,
+    {}
+  ) as Collaborator[] | undefined
+
+  // Build email to userName mapping from all project collaborators
+  const emailToNameMap = useMemo(() => {
+    const map = new Map<string, string>()
+    if (!allCollaborators) return map
+    
+    allCollaborators.forEach((collaborator) => {
+      const email = collaborator.email.toLowerCase().trim()
+      if (collaborator.userName) {
+        map.set(email, collaborator.userName)
+      }
+    })
+    
+    return map
+  }, [allCollaborators])
+  
+  // Helper function to get display name (userName or email)
+  const getDisplayName = (email: string): string => {
+    const normalizedEmail = email.toLowerCase().trim()
+    return emailToNameMap.get(normalizedEmail) || email
+  }
+
+  const projectOptions = useMemo<TaskCardProject[]>(() => {
+    if (!projects) return []
+    return projects.map((project) => ({
+      _id: project._id,
+      id: String(project._id),
+      name: project.name,
+      description: project.description,
+      type: project.type,
+      category: project.category,
+      status: '',
+      githubUrl: project.githubUrl,
+    }))
+  }, [projects])
+
+  useEffect(() => {
+    // Throttle updates to every 1 minute to reduce re-renders and improve performance
+    const interval = window.setInterval(() => setNow(Date.now()), 60000)
+    return () => window.clearInterval(interval)
+  }, [])
+
+  const computeTrackedTime = (task: Task) => {
+    const base = task.trackedTimeMs ?? 0
+    const normalizedStatus = (task.status || '').toLowerCase()
+    const isRunning = normalizedStatus === 'in progress' || normalizedStatus === 'in-progress' || normalizedStatus === 'running'
+    const active = task.startedAt && isRunning ? Math.max(0, now - task.startedAt) : 0
+    return base + active
+  }
+
+  const formatDuration = (milliseconds: number) => {
+    const totalSeconds = Math.floor(milliseconds / 1000)
+    const hours = Math.floor(totalSeconds / 3600)
+    const minutes = Math.floor((totalSeconds % 3600) / 60)
+    const seconds = totalSeconds % 60
+    return [hours, minutes, seconds].map((part) => String(part).padStart(2, '0')).join(':')
+  }
+
+  const getProjectName = (projectId?: Id<"projects">) => {
+    if (!projectId || !projects) return null
+    return projects.find(p => p._id === projectId)?.name || null
+  }
 
   const githubProjects = useMemo(() => {
     if (!projects) return []
@@ -227,8 +312,10 @@ function RouteComponent() {
       }
 
       try {
+        // Fetch more issues to account for pull requests mixed in the results
+        // GitHub API returns both issues and PRs, so we fetch 10 to ensure we get at least 2 issues
         const response = await fetch(
-          `https://api.github.com/repos/${repo}/issues?per_page=${ISSUES_PER_PROJECT * 2}&sort=created&state=open`
+          `https://api.github.com/repos/${repo}/issues?per_page=10&sort=created&state=open`
         )
 
         if (!response.ok) {
@@ -315,543 +402,407 @@ function RouteComponent() {
     return !status || status === 'todo' || status === 'backlog' || status === 'not started'
   })
 
-  // Helper to refetch tasks
-  const refetchTasks = async () => {
-    await queryClient.invalidateQueries({
+  const handleCancelEdit = () => {
+    setEditingTaskId(null)
+    setEditTaskForm({
+      text: "",
+      details: "",
+      priority: "low",
+      hrs: 1,
+      refLink: "",
+      projectId: "" as Id<"projects"> | "",
+      sharedWith: "",
+    })
+  }
+
+  const handleEditTask = (task: Task) => {
+    setEditingTaskId(task._id)
+    const sharedEmails = getSharedEmails(task.sharedWith)
+    setEditTaskForm({
+      text: task.text,
+      details: task.details || "",
+      priority: (task.priority || "low") as "low" | "medium" | "high",
+      hrs: task.hrs || 1,
+      refLink: task.refLink || "",
+      projectId: task.projectId || ("" as Id<"projects"> | ""),
+      sharedWith: sharedEmails.join(", "),
+    })
+  }
+
+  const handleSubmitEdit = async () => {
+    if (!editingTaskId || !editTaskForm.text.trim()) {
+      return
+    }
+
+    const taskId = editingTaskId
+    setIsSubmitting(true)
+    try {
+      const sharedWithJson = editTaskForm.sharedWith
+        ? JSON.stringify(editTaskForm.sharedWith.split(",").map((email: string) => email.trim()).filter((email: string) => email))
+        : undefined
+
+      await updateTask({
+        taskId: taskId as Id<"tasks">,
+        text: editTaskForm.text,
+        details: editTaskForm.details || "",
+        priority: editTaskForm.priority,
+        hrs: editTaskForm.hrs,
+        refLink: editTaskForm.refLink || "",
+        projectId: (editTaskForm.projectId || undefined) as Id<"projects"> | undefined,
+        sharedWith: sharedWithJson,
+      })
+      
+      queryClient.invalidateQueries({ predicate: (query) => {
+        const key = query.queryKey
+        return Array.isArray(key) && key[0] === api.tasks.listTasks
+      }})
+      
+      setEditingTaskId(null)
+      setEditTaskForm({
+        text: "",
+        details: "",
+        priority: "low",
+        hrs: 1,
+        refLink: "",
+        projectId: "" as Id<"projects"> | "",
+        sharedWith: "",
+      })
+      toast.success("Task updated successfully!")
+    } catch (error) {
+      console.error("Failed to update task:", error)
+      toast.error("Failed to update task. Please try again.")
+      setEditingTaskId(taskId)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleToggleTask = async (task: Task) => {
+    const currentStatus = task.status || 'todo'
+    const newStatus = currentStatus === 'done' ? 'todo' : 'done'
+    try {
+      await updateTask({
+        taskId: task._id as Id<"tasks">,
+        status: newStatus,
+      })
+      queryClient.invalidateQueries({ predicate: (query) => {
+        const key = query.queryKey
+        return Array.isArray(key) && key[0] === api.tasks.listTasks
+      }})
+    } catch (error) {
+      console.error('Failed to toggle task:', error)
+      toast.error('Failed to update task. Please try again.')
+    }
+  }
+
+  const handleDeleteTask = async (task: Task) => {
+    try {
+      await deleteTask({ taskId: task._id as Id<"tasks"> })
+      queryClient.invalidateQueries({ predicate: (query) => {
+        const key = query.queryKey
+        return Array.isArray(key) && key[0] === api.tasks.listTasks
+      }})
+      toast.success("Task deleted successfully")
+    } catch (error) {
+      console.error('Failed to delete task:', error)
+      toast.error('Failed to delete task. Please try again.')
+    }
+  }
+
+  const handleShareTask = async (task: Task) => {
+    try {
+      const result = await shareTaskWithCollaborators({ taskId: task._id as Id<"tasks"> })
+      if (!result?.success) {
+        toast.info(result?.message || "No collaborators to share with yet")
+      } else if (result.added === 0) {
+        toast.info(result.message || "Task already shared with collaborators")
+      } else {
+        toast.success(result.message || "Task shared with project collaborators")
+      }
+      queryClient.invalidateQueries({
       predicate: (query) => {
         const key = query.queryKey
         return Array.isArray(key) && key[0] === api.tasks.listTasks
-      }
-    })
+        },
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to share task"
+      toast.error(message)
+    }
+  }
+
+  const handleUnshareTask = async (task: Task) => {
+    try {
+      await unshareTaskMutation({
+        taskId: task._id as Id<"tasks">,
+      })
+      toast.success("Task unshared from collaborators")
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey
+          return Array.isArray(key) && key[0] === api.tasks.listTasks
+        },
+      })
+    } catch (error) {
+      console.error('Failed to unshare task:', error)
+      toast.error('Failed to unshare task. Please try again.')
+    }
   }
 
 
   return (
-    <main style={{ 
-      maxWidth: '1200px', 
-      margin: '0 auto', 
-      padding: '2rem',
-      minHeight: '100vh'
-    }}>
-      <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{ 
-          fontSize: '2rem', 
-          fontWeight: '700', 
-          marginBottom: '0.5rem',
-          color: '#111827'
-        }}>
-          Refine
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-10 min-h-screen">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold mb-6 text-foreground">
+            Review Center
         </h1>
-        <p style={{ 
-          color: '#6b7280',
-          fontSize: '1rem'
-        }}>
-          Edit tasks shared with you and review your tasks shared with others
-        </p>
+          <div className="space-y-2">
+            <div className="flex items-start gap-2">
+              <MessageSquare className="h-5 w-5 mt-0.5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+              <p className="text-base font-semibold leading-relaxed text-blue-700 dark:text-blue-300">
+                Task discussion and refinement
+              </p>
+            </div>
+            <div className="flex items-start gap-2">
+              <GitBranch className="h-5 w-5 mt-0.5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+              <p className="text-base font-semibold leading-relaxed text-emerald-700 dark:text-emerald-300">
+                Review new issues from <span className="font-bold text-emerald-800 dark:text-emerald-200">GitHub</span>
+              </p>
+            </div>
+          </div>
+        </div>
+        {sharedTasks.length > 0 && (
+          <div className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white/90 p-1 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <button
+              type="button"
+              onClick={() => setViewMode('collaborator')}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors",
+                viewMode === 'collaborator'
+                  ? "bg-black text-white dark:bg-white dark:text-black"
+                  : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+              )}
+            >
+              <Users className="h-4 w-4" />
+              Collaborator
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('owner')}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors",
+                viewMode === 'owner'
+                  ? "bg-black text-white dark:bg-white dark:text-black"
+                  : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+              )}
+            >
+              <User className="h-4 w-4" />
+              Owner
+            </button>
+          </div>
+        )}
       </div>
 
       {sharedTasks.length === 0 ? (
-        <Card style={{ padding: '3rem', textAlign: 'center' }}>
-          <p style={{ color: '#6b7280', fontSize: '1.1rem' }}>
+        <Card className="p-12 text-center">
+          <p className="text-muted-foreground text-lg">
             No shared tasks available to refine.
           </p>
-          <p style={{ color: '#9ca3af', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+          <p className="text-muted-foreground/70 text-sm mt-2">
             Tasks shared with you or tasks you've shared with others will appear here.
           </p>
         </Card>
       ) : (
         <div>
-          {/* Tasks Shared WITH Me */}
-          {tasksSharedWithMe.length > 0 && (
-            <div style={{ marginBottom: '2.5rem' }}>
-              <h2 style={{ 
-                fontSize: '1.25rem', 
-                fontWeight: '600', 
-                marginBottom: '1rem',
-                color: '#111827'
-              }}>
-                Tasks Shared With Me ({tasksSharedWithMe.length})
+          {/* Collaborator View - Tasks Shared WITH Me */}
+          {viewMode === 'collaborator' && tasksSharedWithMe.length > 0 && (
+            <div>
+              <h2 className="text-xl font-semibold mb-4 text-foreground">
+                From Collaborator ({tasksSharedWithMe.length} task{tasksSharedWithMe.length !== 1 ? 's' : ''})
               </h2>
-              <p style={{ 
-                color: '#6b7280',
-                fontSize: '0.9rem',
-                marginBottom: '1rem'
-              }}>
-                Edit and update these tasks
-              </p>
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', 
-                gap: '1.5rem' 
-              }}>
-                {tasksSharedWithMe.map((task) => (
-                  <Card
-                    key={task._id}
-                    style={{
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '0.75rem',
-                      padding: '1.5rem',
-                      transition: 'all 0.2s',
-                      position: 'relative',
-                      overflow: 'hidden',
-                      backgroundColor: '#ffffff'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = '#93c5fd'
-                      e.currentTarget.style.transform = 'translateY(-2px)'
-                      e.currentTarget.style.boxShadow = '0 10px 24px rgba(59, 130, 246, 0.12)'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = '#e5e7eb'
-                      e.currentTarget.style.transform = 'translateY(0)'
-                      e.currentTarget.style.boxShadow = 'none'
-                    }}
-                  >
-                    <CardContent style={{ padding: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ 
-                            display: 'flex',
-                            alignItems: 'flex-start',
-                            justifyContent: 'space-between',
-                            gap: '1rem',
-                            marginBottom: '0.75rem',
-                            flexWrap: 'wrap'
-                          }}>
-                            <div style={{ flex: 1, minWidth: '200px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
-                                <h3 style={{ 
-                                  fontSize: '1.25rem', 
-                                  fontWeight: '600', 
-                                  color: '#111827',
-                                  wordBreak: 'break-word',
-                                  margin: 0
-                                }}>
-                                  {task.text}
-                                </h3>
-                                <Badge variant="outline" style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}>
-                                  Shared With Me
-                                </Badge>
-                                {task.updatedAt && (() => {
-                                  const updatedTime = new Date(task.updatedAt)
-                                  const now = new Date()
-                                  const hoursSinceUpdate = (now.getTime() - updatedTime.getTime()) / (1000 * 60 * 60)
-                                  // Show "Edited" badge if updated within last hour (for tasks shared WITH me)
-                                  if (hoursSinceUpdate < 1) {
-                                    return (
-                                      <Badge variant="default" style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', backgroundColor: '#10b981', color: 'white' }}>
-                                        Edited
-                                      </Badge>
-                                    )
-                                  }
-                                  return null
-                                })()}
-                              </div>
-                              {getSharedEmails(task.sharedWith).length > 0 && (
-                                <p style={{ 
-                                  fontSize: '0.75rem', 
-                                  color: '#6b7280',
-                                  margin: 0,
-                                  wordBreak: 'break-word'
-                                }}>
-                                  Shared with: {getSharedEmails(task.sharedWith).join(", ")}
-                                </p>
-                              )}
-                            </div>
-                            <div style={{ 
-                              display: 'flex',
-                              gap: '0.5rem',
-                              flexWrap: 'wrap',
-                              alignItems: 'center'
-                            }}>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => {
-                                  setEditingTask({
-                                    _id: task._id,
-                                    text: task.text,
-                                    details: task.details,
-                                    priority: task.priority,
-                                    status: task.status,
-                                    hrs: task.hrs,
-                                    sharedWith: task.sharedWith,
-                                    refLink: task.refLink
-                                  })
-                                  setIsEditModalOpen(true)
-                                }}
-                                style={{
-                                  width: '36px',
-                                  height: '36px',
-                                  padding: 0,
-                                  flexShrink: 0
-                                }}
-                                title="Edit task"
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                          {task.details && (
-                            <p style={{ 
-                              fontSize: '0.95rem', 
-                              color: '#6b7280',
-                              marginBottom: '1rem',
-                              wordBreak: 'break-word',
-                              lineHeight: '1.5'
-                            }}>
-                              {task.details}
-                            </p>
-                          )}
-                          {task.refLink && (
-                            <div style={{ marginBottom: '1rem' }}>
-                              <a
-                                href={task.refLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{
-                                  fontSize: '0.9rem',
-                                  color: '#3b82f6',
-                                  textDecoration: 'none',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '0.25rem',
-                                  wordBreak: 'break-all'
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.textDecoration = 'underline'
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.textDecoration = 'none'
-                                }}
-                              >
-                                🔗 {task.refLink}
-                              </a>
-                            </div>
-                          )}
-                          <div style={{ 
-                            display: 'flex',
-                            gap: '0.5rem',
-                            flexWrap: 'wrap',
-                            alignItems: 'center',
-                            marginBottom: '0.75rem'
-                          }}>
-                            {task.priority && (() => {
-                              const priorityLower = String(task.priority).toLowerCase().trim();
-                              let variant: 'destructive' | 'default' | 'secondary' = 'secondary';
-                              let className = '';
+              <div className="flex flex-col items-center gap-6">
+                {tasksSharedWithMe.map((task, index) => {
+                  const normalizedStatus = (task.status || '').toLowerCase()
+                  const totalTrackedMs = computeTrackedTime(task)
+                  const isRunningTask =
+                    normalizedStatus === 'in progress' ||
+                    normalizedStatus === 'in-progress' ||
+                    normalizedStatus === 'running'
+                  const runningTimeLabel = totalTrackedMs > 0 ? formatDuration(totalTrackedMs) : null
 
-                              if (priorityLower === 'high') {
-                                variant = 'destructive';
-                                className = '!bg-red-600 !text-white';
-                              } else if (priorityLower === 'medium') {
-                                variant = 'default';
-                                className = '!bg-blue-600 !text-white';
-                              } else if (priorityLower === 'low') {
-                                variant = 'secondary';
-                                className = '!bg-gray-500 !text-white';
-                              }
+                  const typedTask: TaskCardTask = {
+                    ...task,
+                    priority: task.priority ?? undefined,
+                    status: task.status,
+                    hrs: task.hrs ?? undefined,
+                    startedAt: task.startedAt ? new Date(task.startedAt) : null,
+                    completedAt: task.completedAt ? new Date(task.completedAt) : null,
+                    trackedTimeMs: task.trackedTimeMs ?? undefined,
+                  }
+                  const projectName = typedTask.projectId ? getProjectName(typedTask.projectId) : null
+                  const sharedEmails = getSharedEmails(typedTask.sharedWith)
+                  const sharedDisplayNames = sharedEmails.map(email => getDisplayName(email))
+                  const isOwner = session?.user?.id === typedTask.userId
 
                               return (
-                                <Badge
-                                  variant={variant}
-                                  className={className}
-                                  style={{
-                                    textTransform: 'capitalize'
-                                  }}
-                                >
-                                  {task.priority}
-                                </Badge>
-                              );
-                            })()}
-                            {task.status && (
-                              <Badge 
-                                variant={
-                                  task.status === 'done' ? 'default' :
-                                  task.status === 'in-progress' ? 'secondary' : 'outline'
-                                }
-                                style={{
-                                  textTransform: 'capitalize'
-                                }}
-                              >
-                                {task.status === 'in-progress' ? 'In Progress' : task.status === 'todo' ? 'To Do' : task.status}
-                              </Badge>
-                            )}
-                            {task.hrs && (
-                              <Badge variant="outline" style={{ fontSize: '0.75rem' }}>
-                                {task.hrs} hrs
-                              </Badge>
-                            )}
+                    <div
+                      key={typedTask._id}
+                      className="mx-auto w-full max-w-3xl"
+                      style={{ paddingTop: index === 0 ? "12px" : "32px" }}
+                    >
+                      <TaskCard
+                        task={typedTask}
+                        projectName={projectName}
+                        isOwner={isOwner}
+                        sharedEmails={sharedDisplayNames}
+                        isEditing={editingTaskId === typedTask._id}
+                        editForm={editTaskForm}
+                        isSubmitting={isSubmitting}
+                        projects={projectOptions}
+                        wrapperStyle={{ margin: 0 }}
+                        onEdit={() => handleEditTask(task)}
+                        onDelete={() => handleDeleteTask(task)}
+                        onToggle={() => handleToggleTask(task)}
+                        onShare={() => handleShareTask(task)}
+                        onUnshare={() => handleUnshareTask(task)}
+                        onCancelEdit={handleCancelEdit}
+                        onSaveEdit={handleSubmitEdit}
+                        onEditFormChange={setEditTaskForm}
+                        runningTimeLabel={runningTimeLabel}
+                        isRunning={isRunningTask}
+                        showRefinement={true}
+                        currentUserId={session?.user?.id || ""}
+                      />
                           </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}
 
-          {/* My Tasks Shared With Others */}
-          {myTasksSharedWithOthers.length > 0 && (
+          {/* Owner View - My Tasks Shared With Others */}
+          {viewMode === 'owner' && myTasksSharedWithOthers.length > 0 && (
             <div>
-              <h2 style={{ 
-                fontSize: '1.25rem', 
-                fontWeight: '600', 
-                marginBottom: '1rem',
-                color: '#111827'
-              }}>
-                My Tasks Shared With Others ({myTasksSharedWithOthers.length})
+              <h2 className="text-xl font-semibold mb-4 text-foreground">
+                To Collaborator ({myTasksSharedWithOthers.length} task{myTasksSharedWithOthers.length !== 1 ? 's' : ''})
               </h2>
-              <p style={{ 
-                color: '#6b7280',
-                fontSize: '0.9rem',
-                marginBottom: '1rem'
-              }}>
-                Review what others have edited in your shared tasks
-              </p>
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', 
-                gap: '1.5rem' 
-              }}>
-                {myTasksSharedWithOthers.map((task) => (
-            <Card
-              key={task._id}
-              style={{
-                border: '1px solid #e5e7eb',
-                borderRadius: '0.75rem',
-                padding: '1.5rem',
-                transition: 'all 0.2s',
-                position: 'relative',
-                overflow: 'hidden',
-                backgroundColor: '#ffffff'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = '#93c5fd'
-                e.currentTarget.style.transform = 'translateY(-2px)'
-                e.currentTarget.style.boxShadow = '0 10px 24px rgba(59, 130, 246, 0.12)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = '#e5e7eb'
-                e.currentTarget.style.transform = 'translateY(0)'
-                e.currentTarget.style.boxShadow = 'none'
-              }}
-            >
-              <CardContent style={{ padding: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ 
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      justifyContent: 'space-between',
-                      gap: '1rem',
-                      marginBottom: '0.75rem',
-                      flexWrap: 'wrap'
-                    }}>
-                      <div style={{ flex: 1, minWidth: '200px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
-                          <h3 style={{ 
-                            fontSize: '1.25rem', 
-                            fontWeight: '600', 
-                            color: '#111827',
-                            wordBreak: 'break-word',
-                            margin: 0
-                          }}>
-                            {task.text}
-                          </h3>
-                          <Badge variant="outline" style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', backgroundColor: '#fef3c7', borderColor: '#f59e0b' }}>
-                            My Task (Shared)
-                          </Badge>
-                          {task.updatedAt && (() => {
-                            const updatedTime = new Date(task.updatedAt)
-                            const now = new Date()
-                            const hoursSinceUpdate = (now.getTime() - updatedTime.getTime()) / (1000 * 60 * 60)
-                            // Show "Updated" badge if updated within last hour
-                            if (hoursSinceUpdate < 1) {
-                              return (
-                                <Badge variant="default" style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', backgroundColor: '#10b981', color: 'white' }}>
-                                  Updated
-                                </Badge>
-                              )
-                            }
-                            return null
-                          })()}
-                        </div>
-                        {getSharedEmails(task.sharedWith).length > 0 && (
-                          <p style={{ 
-                            fontSize: '0.75rem', 
-                            color: '#6b7280',
-                            margin: 0,
-                            wordBreak: 'break-word'
-                          }}>
-                            Shared with: {getSharedEmails(task.sharedWith).join(", ")}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    {task.details && (
-                      <p style={{ 
-                        fontSize: '0.95rem', 
-                        color: '#6b7280',
-                        marginBottom: '1rem',
-                        wordBreak: 'break-word',
-                        lineHeight: '1.5'
-                      }}>
-                        {task.details}
-                      </p>
-                    )}
-                    <div style={{ 
-                      display: 'flex',
-                      gap: '0.5rem',
-                      flexWrap: 'wrap',
-                      alignItems: 'center',
-                      marginBottom: '0.75rem'
-                    }}>
-                      {task.priority && (() => {
-                        const priorityLower = String(task.priority).toLowerCase().trim();
-                        let variant: 'destructive' | 'default' | 'secondary' = 'secondary';
-                        let className = '';
+              <div className="flex flex-col items-center gap-6">
+                {myTasksSharedWithOthers.map((task, index) => {
+                  const normalizedStatus = (task.status || '').toLowerCase()
+                  const totalTrackedMs = computeTrackedTime(task)
+                  const isRunningTask =
+                    normalizedStatus === 'in progress' ||
+                    normalizedStatus === 'in-progress' ||
+                    normalizedStatus === 'running'
+                  const runningTimeLabel = totalTrackedMs > 0 ? formatDuration(totalTrackedMs) : null
 
-                        if (priorityLower === 'high') {
-                          variant = 'destructive';
-                          className = '!bg-red-600 !text-white';
-                        } else if (priorityLower === 'medium') {
-                          variant = 'default';
-                          className = '!bg-blue-600 !text-white';
-                        } else if (priorityLower === 'low') {
-                          variant = 'secondary';
-                          className = '!bg-gray-500 !text-white';
-                        }
+                  const typedTask: TaskCardTask = {
+                    ...task,
+                    priority: task.priority ?? undefined,
+                    status: task.status,
+                    hrs: task.hrs ?? undefined,
+                    startedAt: task.startedAt ? new Date(task.startedAt) : null,
+                    completedAt: task.completedAt ? new Date(task.completedAt) : null,
+                    trackedTimeMs: task.trackedTimeMs ?? undefined,
+                  }
+                  const projectName = typedTask.projectId ? getProjectName(typedTask.projectId) : null
+                  const sharedEmails = getSharedEmails(typedTask.sharedWith)
+                  const sharedDisplayNames = sharedEmails.map(email => getDisplayName(email))
+                  const isOwner = session?.user?.id === typedTask.userId
 
                         return (
-                          <Badge
-                            variant={variant}
-                            className={className}
-                            style={{
-                              textTransform: 'capitalize'
-                            }}
-                          >
-                            {task.priority}
-                          </Badge>
-                        );
-                      })()}
-                      {task.status && (
-                        <Badge 
-                          variant={
-                            task.status === 'done' ? 'default' :
-                            task.status === 'in-progress' ? 'secondary' : 'outline'
-                          }
-                          style={{
-                            textTransform: 'capitalize'
-                          }}
-                        >
-                          {task.status === 'in-progress' ? 'In Progress' : task.status === 'todo' ? 'To Do' : task.status}
-                        </Badge>
-                      )}
-                      {task.hrs && (
-                        <Badge variant="outline" style={{ fontSize: '0.75rem' }}>
-                          {task.hrs} hrs
-                        </Badge>
-                      )}
+                    <div
+                      key={typedTask._id}
+                      className="mx-auto w-full max-w-3xl"
+                      style={{ paddingTop: index === 0 ? "12px" : "32px" }}
+                    >
+                      <TaskCard
+                        task={typedTask}
+                        projectName={projectName}
+                        isOwner={isOwner}
+                        sharedEmails={sharedDisplayNames}
+                        isEditing={editingTaskId === typedTask._id}
+                        editForm={editTaskForm}
+                        isSubmitting={isSubmitting}
+                        projects={projectOptions}
+                        wrapperStyle={{ margin: 0 }}
+                        onEdit={() => handleEditTask(task)}
+                        onDelete={() => handleDeleteTask(task)}
+                        onToggle={() => handleToggleTask(task)}
+                        onShare={() => handleShareTask(task)}
+                        onUnshare={() => handleUnshareTask(task)}
+                        onCancelEdit={handleCancelEdit}
+                        onSaveEdit={handleSubmitEdit}
+                        onEditFormChange={setEditTaskForm}
+                        runningTimeLabel={runningTimeLabel}
+                        isRunning={isRunningTask}
+                        showRefinement={true}
+                        currentUserId={session?.user?.id || ""}
+                      />
                     </div>
+                  )
+                })}
                   </div>
                 </div>
-              </CardContent>
+          )}
+
+          {/* Empty state for Collaborator view */}
+          {viewMode === 'collaborator' && tasksSharedWithMe.length === 0 && (
+            <Card className="p-12 text-center">
+              <p className="text-muted-foreground text-lg">
+                No tasks shared with you yet.
+              </p>
+              <p className="text-muted-foreground/70 text-sm mt-2">
+                Tasks that others share with you will appear here.
+              </p>
             </Card>
-          ))}
-        </div>
-      </div>
+          )}
+
+          {/* Empty state for Owner view */}
+          {viewMode === 'owner' && myTasksSharedWithOthers.length === 0 && (
+            <Card className="p-12 text-center">
+              <p className="text-muted-foreground text-lg">
+                No tasks shared with others yet.
+              </p>
+              <p className="text-muted-foreground/70 text-sm mt-2">
+                Tasks you share with others will appear here.
+              </p>
+            </Card>
       )}
         </div>
       )}
       
-      <section
-        style={{
-          marginTop: '3rem',
-          paddingTop: '2.5rem',
-          borderTop: '1px solid #e5e7eb',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '1.5rem'
-        }}
-      >
+      <section className="mt-12 pt-10 border-t border-border flex flex-col gap-6">
         <div>
-          <h2
-            style={{
-              fontSize: '1.35rem',
-              fontWeight: 600,
-              marginBottom: '0.5rem',
-              color: '#111827'
-            }}
-          >
+          <h2 className="text-[1.35rem] font-semibold mb-2 text-foreground">
             GitHub Issue Radar
           </h2>
-          <p
-            style={{
-              color: '#6b7280',
-              fontSize: '0.95rem',
-              maxWidth: '640px',
-              margin: 0
-            }}
-          >
+          <p className="text-muted-foreground text-[0.95rem] max-w-[640px] m-0">
             We pull the two newest open issues from the project you pick—perfect for spotting what needs attention next.
           </p>
         </div>
 
         {projects === undefined ? (
-          <Card
-            style={{
-              padding: '2rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.75rem'
-            }}
-          >
-            <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
-            <span style={{ color: '#6b7280', fontSize: '0.95rem' }}>
+          <Card className="p-8 flex items-center justify-center gap-3">
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            <span className="text-muted-foreground text-[0.95rem]">
               Loading linked projects…
             </span>
           </Card>
         ) : githubProjects.length === 0 ? (
-          <Card style={{ padding: '2rem' }}>
-            <p
-              style={{
-                color: '#6b7280',
-                fontSize: '0.95rem',
-                margin: 0
-              }}
-            >
+          <Card className="p-8">
+            <p className="text-muted-foreground text-[0.95rem] m-0">
               Add a GitHub repository URL to one of your projects and it will appear here for quick issue syncing.
             </p>
           </Card>
         ) : (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '1.5rem'
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                alignItems: 'center',
-                gap: '0.75rem'
-              }}
-            >
-              <span
-                style={{
-                  fontSize: '0.85rem',
-                  fontWeight: 600,
-                  color: '#4b5563'
-                }}
-              >
+          <div className="flex flex-col gap-6">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm font-semibold text-foreground/80">
                 Project
               </span>
-              <div style={{ minWidth: '220px' }}>
+              <div className="min-w-[220px]">
                 <Select
                   value={selectedProjectId ?? undefined}
                   onValueChange={(value) => setSelectedProjectId(value)}
@@ -871,50 +822,13 @@ function RouteComponent() {
             </div>
 
             {selectedProject ? (
-              <Card
-                style={{
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '0.75rem',
-                  overflow: 'hidden',
-                  backgroundColor: '#ffffff'
-                }}
-              >
-                <CardContent
-                  style={{
-                    padding: '1.75rem',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '1.25rem'
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'flex-start',
-                      gap: '1rem',
-                      flexWrap: 'wrap'
-                    }}
-                  >
-                    <div style={{ flex: '1 1 320px' }}>
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.5rem',
-                          flexWrap: 'wrap',
-                          marginBottom: '0.5rem'
-                        }}
-                      >
-                        <Github className="h-4 w-4 text-slate-500" />
-                        <h3
-                          style={{
-                            fontSize: '1.15rem',
-                            fontWeight: 600,
-                            color: '#111827',
-                            margin: 0
-                          }}
-                        >
+              <Card className="border rounded-xl overflow-hidden bg-card">
+                <CardContent className="p-7 flex flex-col gap-5">
+                  <div className="flex justify-between items-start gap-4 flex-wrap">
+                    <div className="flex-[1_1_320px]">
+                      <div className="flex items-center gap-2 flex-wrap mb-2">
+                        <Github className="h-4 w-4 text-muted-foreground" />
+                        <h3 className="text-[1.15rem] font-semibold text-foreground m-0">
                           {selectedProject.name}
                         </h3>
                       </div>
@@ -927,20 +841,7 @@ function RouteComponent() {
                             href={`https://github.com/${repoSlug}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '0.35rem',
-                              fontSize: '0.85rem',
-                              color: '#3b82f6',
-                              textDecoration: 'none'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.textDecoration = 'underline'
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.textDecoration = 'none'
-                            }}
+                            className="inline-flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 no-underline hover:underline"
                           >
                             {repoSlug}
                             <ArrowUpRight size={14} />
@@ -948,158 +849,63 @@ function RouteComponent() {
                         )
                       })()}
                       {selectedProject.description && selectedProject.description.trim().length > 0 && (
-                        <p
-                          style={{
-                            color: '#6b7280',
-                            fontSize: '0.85rem',
-                            marginTop: '0.75rem',
-                            marginBottom: 0,
-                            lineHeight: 1.5
-                          }}
-                        >
+                        <p className="text-muted-foreground text-sm mt-3 mb-0 leading-relaxed">
                           {selectedProject.description}
                         </p>
                       )}
                     </div>
-                    <Badge
-                      variant="outline"
-                      style={{
-                        fontSize: '0.75rem',
-                        padding: '0.25rem 0.5rem'
-                      }}
-                    >
+                    <Badge variant="outline" className="text-xs px-2 py-1">
                       Latest Issues
                     </Badge>
                   </div>
 
                   {selectedProjectIssues.status === 'loading' || selectedProjectIssues.status === 'idle' ? (
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.75rem',
-                        color: '#6b7280',
-                        fontSize: '0.95rem'
-                      }}
-                    >
-                      <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                    <div className="flex items-center gap-3 text-muted-foreground text-[0.95rem]">
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                       <span>Syncing GitHub issues…</span>
                     </div>
                   ) : selectedProjectIssues.status === 'error' ? (
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '0.75rem'
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.5rem',
-                          color: '#ef4444',
-                          fontSize: '0.95rem'
-                        }}
-                      >
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center gap-2 text-destructive text-[0.95rem]">
                         <AlertCircle className="h-4 w-4" />
                         <span>We couldn&apos;t load issues for this repository.</span>
                       </div>
-                      <div
-                        style={{
-                          display: 'flex',
-                          flexWrap: 'wrap',
-                          gap: '0.5rem',
-                          alignItems: 'center'
-                        }}
-                      >
+                      <div className="flex flex-wrap gap-2 items-center">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={handleRetry}
-                          style={{
-                            padding: '0.35rem 0.85rem',
-                            fontSize: '0.8rem'
-                          }}
+                          className="px-3.5 py-1.5 text-xs"
                         >
                           Try again
                         </Button>
                         {selectedProjectIssues.error && (
-                          <span
-                            style={{
-                              color: '#9ca3af',
-                              fontSize: '0.85rem'
-                            }}
-                          >
+                          <span className="text-muted-foreground/70 text-sm">
                             {selectedProjectIssues.error}
                           </span>
                         )}
                       </div>
                     </div>
                   ) : selectedProjectIssues.issues.length === 0 ? (
-                    <p
-                      style={{
-                        color: '#6b7280',
-                        fontSize: '0.95rem',
-                        margin: 0
-                      }}
-                    >
+                    <p className="text-muted-foreground text-[0.95rem] m-0">
                       No open issues found in the latest sync.
                     </p>
                   ) : (
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '1rem'
-                      }}
-                    >
+                    <div className="flex flex-col gap-4">
                       {selectedProjectIssues.issues.map((issue) => (
                         <div
                           key={issue.id}
-                          style={{
-                            border: '1px solid #e5e7eb',
-                            borderRadius: '0.75rem',
-                            padding: '1rem',
-                            backgroundColor: '#f9fafb',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '0.75rem'
-                          }}
+                          className="border rounded-xl p-4 bg-muted/50 dark:bg-muted/30 flex flex-col gap-3"
                         >
-                          <div
-                            style={{
-                              display: 'flex',
-                              flexWrap: 'wrap',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              gap: '0.75rem'
-                            }}
-                          >
+                          <div className="flex flex-wrap items-center justify-between gap-3">
                             <a
                               href={issue.html_url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '0.5rem',
-                                fontSize: '0.95rem',
-                                fontWeight: 600,
-                                color: '#1d4ed8',
-                                textDecoration: 'none',
-                                flex: '1 1 auto',
-                                minWidth: 0
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.textDecoration = 'underline'
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.textDecoration = 'none'
-                              }}
+                              className="inline-flex items-center gap-2 text-[0.95rem] font-semibold text-blue-700 dark:text-blue-400 no-underline flex-[1_1_auto] min-w-0 hover:underline"
                             >
-                              <span style={{ color: '#6b7280' }}>#{issue.number}</span>
-                              <span style={{ flex: '1 1 auto', minWidth: 0 }}>{issue.title}</span>
+                              <span className="text-muted-foreground">#{issue.number}</span>
+                              <span className="flex-[1_1_auto] min-w-0">{issue.title}</span>
                               <ArrowUpRight size={16} />
                             </a>
                             <Button
@@ -1114,28 +920,14 @@ function RouteComponent() {
                                 })
                                 setIsAddModalOpen(true)
                               }}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '0.4rem',
-                                whiteSpace: 'nowrap'
-                              }}
+                              className="inline-flex items-center gap-1.5 whitespace-nowrap"
                             >
                               <ListTodo size={16} />
                               Add Task
                             </Button>
                           </div>
-                          <div
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '0.75rem',
-                              flexWrap: 'wrap',
-                              color: '#6b7280',
-                              fontSize: '0.85rem'
-                            }}
-                          >
-                            <span style={{ textTransform: 'capitalize' }}>{issue.state}</span>
+                          <div className="flex items-center gap-3 flex-wrap text-muted-foreground text-sm">
+                            <span className="capitalize">{issue.state}</span>
                             {issue.user?.login && (
                               <>
                                 <span>•</span>
@@ -1146,32 +938,18 @@ function RouteComponent() {
                             <span>{formatRelativeTime(issue.created_at)}</span>
                           </div>
                           {Array.isArray(issue.labels) && issue.labels.length > 0 && (
-                            <div
-                              style={{
-                                display: 'flex',
-                                gap: '0.5rem',
-                                flexWrap: 'wrap'
-                              }}
-                            >
+                            <div className="flex gap-2 flex-wrap">
                               {issue.labels.slice(0, 3).map((label) => (
                                 <Badge
                                   key={`${issue.id}-${label.id ?? label.name}`}
                                   variant="outline"
-                                  style={{
-                                    fontSize: '0.7rem',
-                                    textTransform: 'none'
-                                  }}
+                                  className="text-[0.7rem] normal-case"
                                 >
                                   {label.name}
                                 </Badge>
                               ))}
                               {issue.labels.length > 3 && (
-                                <Badge
-                                  variant="outline"
-                                  style={{
-                                    fontSize: '0.7rem'
-                                  }}
-                                >
+                                <Badge variant="outline" className="text-[0.7rem]">
                                   +{issue.labels.length - 3} more
                                 </Badge>
                               )}
@@ -1188,24 +966,18 @@ function RouteComponent() {
         )}
       </section>
 
-      <EditTaskModal
-        open={isEditModalOpen}
-        onOpenChange={(open) => {
-          setIsEditModalOpen(open)
-          if (!open) {
-            setEditingTask(null)
-            refetchTasks()
-          }
-        }}
-        task={editingTask}
-      />
       <AddTaskModal
         open={isAddModalOpen}
         onOpenChange={(open) => {
           setIsAddModalOpen(open)
           if (!open) {
             setAddTaskPrefill(null)
-            refetchTasks()
+            queryClient.invalidateQueries({
+              predicate: (query) => {
+                const key = query.queryKey
+                return Array.isArray(key) && key[0] === api.tasks.listTasks
+              }
+            })
           }
         }}
         projectId={addTaskPrefill?.projectId}

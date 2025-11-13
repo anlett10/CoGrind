@@ -69,4 +69,20 @@ export default defineSchema({
     .index('by_email', ['email'])
     .index('by_project', ['projectId'])
     .index('by_project_email', ['projectId', 'email']),
+  taskRefinements: defineTable({
+    taskId: v.id("tasks"),
+    authorId: v.string(), // userId of the person who created this refinement
+    authorEmail: v.string(), // email for display
+    authorName: v.optional(v.string()), // display name if available
+    role: v.string(), // "owner" | "collaborator"
+    type: v.string(), // "note" | "question" | "answer" | "update"
+    content: v.string(), // the actual note/question/answer text
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+    parentId: v.optional(v.id("taskRefinements")), // for threading questions/answers
+  })
+    .index('by_task', ['taskId'])
+    .index('by_task_created', ['taskId', 'createdAt'])
+    .index('by_author', ['authorId'])
+    .index('by_parent', ['parentId']),
 })

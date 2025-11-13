@@ -296,7 +296,8 @@ function ProjectsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
-    const interval = window.setInterval(() => setNow(Date.now()), 1000)
+    // Throttle updates to every 1 minute to reduce re-renders and improve performance
+    const interval = window.setInterval(() => setNow(Date.now()), 60000)
     return () => window.clearInterval(interval)
   }, [])
 
@@ -574,7 +575,7 @@ function ProjectsPage() {
       <div className="h-screen bg-white dark:bg-slate-900 flex">
         {/* Left Sidebar */}
         {session && (
-          <div className="w-16 sm:w-64 lg:w-[26rem] xl:w-[28rem] bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 shadow-xl flex flex-col">
+          <div className="w-16 sm:w-64 lg:w-[25rem] xl:w-[27rem] bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 shadow-xl flex flex-col">
             {/* Sidebar Header */}
             <div className="pt-1 pl-2 pr-1 pb-0 sm:pt-2 sm:pl-3 sm:pr-1.5 sm:pb-0 lg:pt-3 lg:pl-2 lg:pr-1 lg:pb-0">
               {/* Desktop Dock in Header */}
