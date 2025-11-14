@@ -152,22 +152,19 @@ bun run start
 
 ### Netlify Deployment
 
-For Netlify deployment, you need to set up Convex authentication:
+For Netlify deployment:
 
 1. **Set Environment Variables in Netlify**:
    - Go to Netlify Dashboard → Site Settings → Environment Variables
-   - Add: `CONVEX_DEPLOYMENT` = Your Convex deployment name (e.g., `dev:utmost-swan-132`)
    - Add: `VITE_CONVEX_URL` = Your Convex deployment URL
    - Add: `VITE_CONVEX_SITE_URL` = Your Netlify site URL (e.g., `https://your-site.netlify.app`)
 
-2. **Authenticate Convex on Netlify**:
-   - The build will run `npx convex codegen` which requires Convex authentication
-   - You may need to set up a Convex deployment key or configure authentication
+2. **Build Configuration**:
+   - The `convex/_generated/` files are committed to the repository for CI/CD builds
+   - No Convex authentication is needed during the build process
+   - The build command in `netlify.toml` will run `vite build` directly
 
-3. **Build Command**:
-   - The build command in `netlify.toml` will automatically run `npx convex codegen` before building
-
-**Note**: If `convex codegen` fails during build, ensure your Convex project is properly configured and accessible.
+**Note**: If you update your Convex schema, remember to regenerate and commit the `convex/_generated/` files by running `npx convex dev` locally.
 
 ## License
 

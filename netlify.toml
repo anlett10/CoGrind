@@ -1,5 +1,5 @@
 [build]
-  command = "npx convex codegen && vite build"
+  command = "vite build"
   publish = "dist/client"
 [dev]
   command = "vite dev"

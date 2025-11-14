@@ -37,7 +37,7 @@ yarn-error.log*
 # Generated files
 .convex/
 src/routeTree.gen.ts
-convex/_generated/
+# convex/_generated/ - Committed for CI/CD builds (Netlify needs these files)
 
 # Notes
 notes/
