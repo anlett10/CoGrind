@@ -148,6 +148,27 @@ bun run start
 - Reinstall dependencies: `rm -rf node_modules && bun install`
 - Check TypeScript errors: `bun run build`
 
+## Deployment
+
+### Netlify Deployment
+
+For Netlify deployment, you need to set up Convex authentication:
+
+1. **Set Environment Variables in Netlify**:
+   - Go to Netlify Dashboard → Site Settings → Environment Variables
+   - Add: `CONVEX_DEPLOYMENT` = Your Convex deployment name (e.g., `dev:utmost-swan-132`)
+   - Add: `VITE_CONVEX_URL` = Your Convex deployment URL
+   - Add: `VITE_CONVEX_SITE_URL` = Your Netlify site URL (e.g., `https://your-site.netlify.app`)
+
+2. **Authenticate Convex on Netlify**:
+   - The build will run `npx convex codegen` which requires Convex authentication
+   - You may need to set up a Convex deployment key or configure authentication
+
+3. **Build Command**:
+   - The build command in `netlify.toml` will automatically run `npx convex codegen` before building
+
+**Note**: If `convex codegen` fails during build, ensure your Convex project is properly configured and accessible.
+
 ## License
 
 MIT
