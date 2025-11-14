@@ -7,9 +7,20 @@ import { QueryClient } from '@tanstack/react-query'
 import { DefaultNotFound } from '~/components/app/default-not-found'
 
 export function getRouter() {
-  const CONVEX_URL = import.meta.env.VITE_CONVEX_URL!
+  // Try multiple ways to get the Convex URL for Cloudflare Workers compatibility
+  const CONVEX_URL = 
+    import.meta.env.VITE_CONVEX_URL ||
+    (typeof process !== 'undefined' && process.env?.VITE_CONVEX_URL) ||
+    null;
+  
   if (!CONVEX_URL) {
-    throw new Error('missing VITE_CONVEX_URL envar')
+    const errorMsg = `missing VITE_CONVEX_URL environment variable. Available env vars: ${JSON.stringify({
+      hasViteConvexUrl: !!import.meta.env.VITE_CONVEX_URL,
+      hasProcessEnv: typeof process !== 'undefined',
+      envKeys: typeof process !== 'undefined' && process.env ? Object.keys(process.env).filter(k => k.includes('CONVEX')) : [],
+    })}`;
+    console.error(errorMsg);
+    throw new Error(errorMsg);
   }
   const convex = new ConvexReactClient(CONVEX_URL, {
     unsavedChangesWarning: false,
