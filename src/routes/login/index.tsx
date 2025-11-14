@@ -17,7 +17,7 @@ function RouteComponent() {
     const handleRedirect = async () => {
       if (session && !hasNavigated.current) {
         hasNavigated.current = true;
-        navigate({ to: "/", replace: true });
+        navigate({ to: "/project", replace: true });
       }
     };
     handleRedirect();

@@ -8,7 +8,7 @@ import { useSession } from './route'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent } from '~/components/ui/card'
 import { Badge } from '~/components/ui/badge'
-import { AlertCircle, ArrowUpRight, Github, ListTodo, Loader2, User, Users, MessageSquare, GitBranch } from 'lucide-react'
+import { AlertCircle, ArrowUpRight, Github, ListTodo, Loader2, User, Users, MessageSquare, GitBranch, CheckSquare } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
 import { AddTaskModal } from '~/components/app/add-task-modal'
 import { TaskCard, type TaskCardTask, type TaskEditForm, type TaskCardProject } from '~/components/app/task-card'
@@ -614,11 +614,12 @@ function RouteComponent() {
           </p>
         </Card>
       ) : (
-        <div>
+        <div className="mt-12 pt-10 border-t border-slate-200 dark:border-slate-800">
           {/* Collaborator View - Tasks Shared WITH Me */}
           {viewMode === 'collaborator' && tasksSharedWithMe.length > 0 && (
             <div>
-              <h2 className="text-xl font-semibold mb-4 text-foreground">
+              <h2 className="text-xl font-semibold mb-6 text-foreground flex items-center gap-2">
+                <CheckSquare className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 From Collaborator ({tasksSharedWithMe.length} task{tasksSharedWithMe.length !== 1 ? 's' : ''})
               </h2>
               <div className="flex flex-col items-center gap-6">
@@ -684,7 +685,8 @@ function RouteComponent() {
           {/* Owner View - My Tasks Shared With Others */}
           {viewMode === 'owner' && myTasksSharedWithOthers.length > 0 && (
             <div>
-              <h2 className="text-xl font-semibold mb-4 text-foreground">
+              <h2 className="text-xl font-semibold mb-6 text-foreground flex items-center gap-2">
+                <CheckSquare className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                 To Collaborator ({myTasksSharedWithOthers.length} task{myTasksSharedWithOthers.length !== 1 ? 's' : ''})
               </h2>
               <div className="flex flex-col items-center gap-6">
@@ -773,41 +775,46 @@ function RouteComponent() {
         </div>
       )}
       
-      <section className="mt-12 pt-10 border-t border-border flex flex-col gap-6">
+      <section className="mt-12 pt-10 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-6">
         <div>
-          <h2 className="text-[1.35rem] font-semibold mb-2 text-foreground">
+          <h2 className="text-2xl font-bold mb-3 text-foreground flex items-center gap-2">
+            <Github className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             GitHub Issue Radar
           </h2>
-          <p className="text-muted-foreground text-[0.95rem] max-w-[640px] m-0">
+          <p className="text-muted-foreground text-sm max-w-[640px] leading-relaxed">
             We pull the two newest open issues from the project you pick—perfect for spotting what needs attention next.
           </p>
         </div>
 
         {projects === undefined ? (
-          <Card className="p-8 flex items-center justify-center gap-3">
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-            <span className="text-muted-foreground text-[0.95rem]">
+          <Card className="p-8 flex items-center justify-center gap-3 bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800">
+            <Loader2 className="h-5 w-5 animate-spin text-blue-600 dark:text-blue-400" />
+            <span className="text-muted-foreground text-sm font-medium">
               Loading linked projects…
             </span>
           </Card>
         ) : githubProjects.length === 0 ? (
-          <Card className="p-8">
-            <p className="text-muted-foreground text-[0.95rem] m-0">
+          <Card className="p-8 bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800">
+            <div className="flex items-start gap-3">
+              <Github className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+              <p className="text-muted-foreground text-sm m-0 leading-relaxed">
               Add a GitHub repository URL to one of your projects and it will appear here for quick issue syncing.
             </p>
+            </div>
           </Card>
         ) : (
           <div className="flex flex-col gap-6">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-sm font-semibold text-foreground/80">
+            <div className="flex flex-wrap items-center gap-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg p-4 border border-slate-200 dark:border-slate-800">
+              <label className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <Github className="h-4 w-4 text-muted-foreground" />
                 Project
-              </span>
-              <div className="min-w-[220px]">
+              </label>
+              <div className="min-w-[240px] flex-1">
                 <Select
                   value={selectedProjectId ?? undefined}
                   onValueChange={(value) => setSelectedProjectId(value)}
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full bg-white dark:bg-slate-800">
                     <SelectValue placeholder="Select a project" />
                   </SelectTrigger>
                   <SelectContent>
@@ -822,13 +829,13 @@ function RouteComponent() {
             </div>
 
             {selectedProject ? (
-              <Card className="border rounded-xl overflow-hidden bg-card">
-                <CardContent className="p-7 flex flex-col gap-5">
-                  <div className="flex justify-between items-start gap-4 flex-wrap">
+              <Card className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-slate-900 shadow-sm hover:shadow-md transition-shadow">
+                <CardContent className="p-6 flex flex-col gap-6">
+                  <div className="flex justify-between items-start gap-4 flex-wrap pb-4 border-b border-slate-200 dark:border-slate-800">
                     <div className="flex-[1_1_320px]">
-                      <div className="flex items-center gap-2 flex-wrap mb-2">
-                        <Github className="h-4 w-4 text-muted-foreground" />
-                        <h3 className="text-[1.15rem] font-semibold text-foreground m-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-3">
+                        <Github className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                        <h3 className="text-xl font-bold text-foreground m-0">
                           {selectedProject.name}
                         </h3>
                       </div>
@@ -841,7 +848,7 @@ function RouteComponent() {
                             href={`https://github.com/${repoSlug}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 no-underline hover:underline"
+                            className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 no-underline hover:text-blue-700 dark:hover:text-blue-300 hover:underline transition-colors"
                           >
                             {repoSlug}
                             <ArrowUpRight size={14} />
@@ -854,59 +861,62 @@ function RouteComponent() {
                         </p>
                       )}
                     </div>
-                    <Badge variant="outline" className="text-xs px-2 py-1">
+                    <Badge variant="outline" className="text-xs px-3 py-1.5 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800">
                       Latest Issues
                     </Badge>
                   </div>
 
                   {selectedProjectIssues.status === 'loading' || selectedProjectIssues.status === 'idle' ? (
-                    <div className="flex items-center gap-3 text-muted-foreground text-[0.95rem]">
-                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                      <span>Syncing GitHub issues…</span>
+                    <div className="flex items-center justify-center gap-3 py-8 text-muted-foreground">
+                      <Loader2 className="h-5 w-5 animate-spin text-blue-600 dark:text-blue-400" />
+                      <span className="text-sm font-medium">Syncing GitHub issues…</span>
                     </div>
                   ) : selectedProjectIssues.status === 'error' ? (
-                    <div className="flex flex-col gap-3">
-                      <div className="flex items-center gap-2 text-destructive text-[0.95rem]">
-                        <AlertCircle className="h-4 w-4" />
-                        <span>We couldn&apos;t load issues for this repository.</span>
+                    <div className="flex flex-col gap-4 p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-lg">
+                      <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
+                        <AlertCircle className="h-5 w-5" />
+                        <span className="text-sm font-semibold">We couldn&apos;t load issues for this repository.</span>
                       </div>
-                      <div className="flex flex-wrap gap-2 items-center">
+                      <div className="flex flex-wrap gap-3 items-center">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={handleRetry}
-                          className="px-3.5 py-1.5 text-xs"
+                          className="px-4 py-2 text-xs border-red-300 dark:border-red-800 text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/40"
                         >
                           Try again
                         </Button>
                         {selectedProjectIssues.error && (
-                          <span className="text-muted-foreground/70 text-sm">
+                          <span className="text-red-600 dark:text-red-500 text-xs">
                             {selectedProjectIssues.error}
                           </span>
                         )}
                       </div>
                     </div>
                   ) : selectedProjectIssues.issues.length === 0 ? (
-                    <p className="text-muted-foreground text-[0.95rem] m-0">
+                    <div className="text-center py-8">
+                      <Github className="h-8 w-8 mx-auto mb-3 text-muted-foreground opacity-50" />
+                      <p className="text-muted-foreground text-sm font-medium m-0">
                       No open issues found in the latest sync.
                     </p>
+                    </div>
                   ) : (
                     <div className="flex flex-col gap-4">
-                      {selectedProjectIssues.issues.map((issue) => (
+                      {selectedProjectIssues.issues.map((issue, index) => (
                         <div
                           key={issue.id}
-                          className="border rounded-xl p-4 bg-muted/50 dark:bg-muted/30 flex flex-col gap-3"
+                          className="border border-slate-200 dark:border-slate-800 rounded-lg p-5 bg-slate-50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors flex flex-col gap-4"
                         >
-                          <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
                             <a
                               href={issue.html_url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-2 text-[0.95rem] font-semibold text-blue-700 dark:text-blue-400 no-underline flex-[1_1_auto] min-w-0 hover:underline"
+                              className="inline-flex items-start gap-2 text-sm font-semibold text-foreground no-underline flex-[1_1_auto] min-w-0 hover:text-blue-600 dark:hover:text-blue-400 group transition-colors"
                             >
-                              <span className="text-muted-foreground">#{issue.number}</span>
-                              <span className="flex-[1_1_auto] min-w-0">{issue.title}</span>
-                              <ArrowUpRight size={16} />
+                              <span className="text-muted-foreground font-mono text-xs mt-0.5">#{issue.number}</span>
+                              <span className="flex-[1_1_auto] min-w-0 leading-snug">{issue.title}</span>
+                              <ArrowUpRight size={16} className="mt-0.5 text-muted-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors flex-shrink-0" />
                             </a>
                             <Button
                               variant="secondary"
@@ -920,36 +930,38 @@ function RouteComponent() {
                                 })
                                 setIsAddModalOpen(true)
                               }}
-                              className="inline-flex items-center gap-1.5 whitespace-nowrap"
+                              className="inline-flex items-center gap-1.5 whitespace-nowrap bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-950/50 border-blue-200 dark:border-blue-800"
                             >
-                              <ListTodo size={16} />
+                              <ListTodo size={14} />
                               Add Task
                             </Button>
                           </div>
-                          <div className="flex items-center gap-3 flex-wrap text-muted-foreground text-sm">
-                            <span className="capitalize">{issue.state}</span>
+                          <div className="flex items-center gap-3 flex-wrap text-muted-foreground text-xs">
+                            <Badge variant="outline" className="text-[0.65rem] px-2 py-0.5 capitalize bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800">
+                              {issue.state}
+                            </Badge>
                             {issue.user?.login && (
                               <>
-                                <span>•</span>
-                                <span>by {issue.user.login}</span>
+                                <span className="text-slate-400 dark:text-slate-600">•</span>
+                                <span className="font-medium">by {issue.user.login}</span>
                               </>
                             )}
-                            <span>•</span>
+                            <span className="text-slate-400 dark:text-slate-600">•</span>
                             <span>{formatRelativeTime(issue.created_at)}</span>
                           </div>
                           {Array.isArray(issue.labels) && issue.labels.length > 0 && (
-                            <div className="flex gap-2 flex-wrap">
+                            <div className="flex gap-2 flex-wrap pt-1">
                               {issue.labels.slice(0, 3).map((label) => (
                                 <Badge
                                   key={`${issue.id}-${label.id ?? label.name}`}
                                   variant="outline"
-                                  className="text-[0.7rem] normal-case"
+                                  className="text-[0.65rem] px-2 py-0.5 normal-case bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700"
                                 >
                                   {label.name}
                                 </Badge>
                               ))}
                               {issue.labels.length > 3 && (
-                                <Badge variant="outline" className="text-[0.7rem]">
+                                <Badge variant="outline" className="text-[0.65rem] px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700">
                                   +{issue.labels.length - 3} more
                                 </Badge>
                               )}

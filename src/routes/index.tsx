@@ -1,5 +1,4 @@
-import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
-import authClient from "~/lib/auth-client";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "~/components/ui/button";
 
 export const Route = createFileRoute("/")({
@@ -7,13 +6,6 @@ export const Route = createFileRoute("/")({
 });
 
 function HomeComponent() {
-  const { data: session } = authClient.useSession();
-
-  // Redirect to project page if logged in
-  if (session) {
-    return <Navigate to="/project" />;
-  }
-
   return (
     <div className="mx-auto mt-8 w-full max-w-6xl px-4 pb-12">
       <div className="flex min-h-[calc(100vh-8rem)] flex-col items-center justify-center">

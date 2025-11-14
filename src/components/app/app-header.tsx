@@ -71,11 +71,8 @@ function NavigationLinks({
   const { data: session } = authClient.useSession();
 
   const links = useMemo(() => {
-    if (!session) {
-      return NAV_LINKS.filter((link) => link.to !== "/live");
-    }
     return NAV_LINKS;
-  }, [session]);
+  }, []);
 
   return (
     <div className="flex w-full justify-center">

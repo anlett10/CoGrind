@@ -760,10 +760,10 @@ function ProjectsPage() {
               <div className="mb-4 flex items-center justify-between">
                 <h1 className="text-3xl font-bold tracking-tight text-foreground">
                   {filterProject === 'all'
-                    ? 'Task Management'
+                    ? 'Task List'
                     : filterProject === 'none'
                       ? 'Unassigned Tasks'
-                    : getProjectName(filterProject) || 'Task Management'}
+                    : getProjectName(filterProject) || 'Task List'}
                 </h1>
                 <div className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white/90 p-1 shadow-sm dark:border-slate-700 dark:bg-slate-800">
                   <button

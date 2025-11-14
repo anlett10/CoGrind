@@ -3,12 +3,11 @@ import { reactStartHandler } from '@convex-dev/better-auth/react-start'
 
 // Helper to get Convex Site URL from environment variables
 function getConvexSiteUrl(): string | null {
-  const env = (import.meta as any).env;
-  let convexSiteUrl = env.VITE_CONVEX_SITE_URL;
+  let convexSiteUrl = import.meta.env.VITE_CONVEX_SITE_URL;
   
   // If not set, derive from VITE_CONVEX_URL (converting WebSocket URL to HTTP)
-  if (!convexSiteUrl && env.VITE_CONVEX_URL) {
-    convexSiteUrl = env.VITE_CONVEX_URL.replace(/^wss?:\/\//, 'https://').replace(/\/$/, '');
+  if (!convexSiteUrl && import.meta.env.VITE_CONVEX_URL) {
+    convexSiteUrl = import.meta.env.VITE_CONVEX_URL.replace(/^wss?:\/\//, 'https://').replace(/\/$/, '');
   }
   
   return convexSiteUrl || null;
