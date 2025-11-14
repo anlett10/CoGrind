@@ -23,28 +23,24 @@ function AppLogo() {
   return (
     <div className="flex items-center gap-3">
       <div className="relative flex-shrink-0">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-400 via-sky-500 to-sky-600 shadow-lg shadow-sky-500/20">
-          <svg
-            className="h-5 w-5 text-white"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M16 18l6-6-6-6" />
-            <path d="M8 6l-6 6 6 6" />
-            <circle cx="12" cy="12" r="1" fill="currentColor" />
-          </svg>
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl overflow-hidden shadow-lg">
+          <img
+            src="/CG.png"
+            alt="CoGrind Logo"
+            className="h-full w-full object-contain"
+          />
         </div>
-        <div className="absolute inset-0 -z-10 h-10 w-10 rounded-2xl bg-gradient-to-br from-sky-400 via-sky-500 to-sky-600 blur-lg opacity-40" />
       </div>
 
       <div className="hidden sm:block flex-shrink-0">
-        <span className="text-xl font-semibold tracking-tight text-transparent bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600 bg-clip-text">
-          WBA
-        </span>
+        <div className="flex flex-col">
+          <span className="text-xl font-bold tracking-tight text-transparent bg-gradient-to-r from-blue-500 via-purple-500 via-pink-500 to-rose-500 bg-clip-text drop-shadow-sm">
+            CoGrind
+          </span>
+          <span className="text-[10px] font-medium tracking-wider text-muted-foreground/70 uppercase">
+            Collaborate. Execute. Deliver.
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -78,7 +74,7 @@ function NavigationLinks({
     <div className="flex w-full justify-center">
       <nav
         className={cn(
-          "relative flex w-full max-w-lg items-center justify-center gap-1 rounded-full",
+          "relative flex w-full max-w-md items-center justify-center gap-1 rounded-full",
           "px-1 py-1",
           showRing &&
             "bg-muted/70 ring-1 ring-border/60 shadow-[0_10px_30px_-20px_rgba(15,23,42,0.45)] backdrop-blur-md",
