@@ -37,3 +37,6 @@ yarn-error.log*
 .convex/
 src/routeTree.gen.ts
 convex/_generated/
+
+# Notes
+notes/
