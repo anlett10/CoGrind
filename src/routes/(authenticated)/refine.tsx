@@ -617,7 +617,7 @@ function RouteComponent() {
         <div className="mt-12 pt-10 border-t border-slate-200 dark:border-slate-800">
           {/* Collaborator View - Tasks Shared WITH Me */}
           {viewMode === 'collaborator' && tasksSharedWithMe.length > 0 && (
-            <div>
+        <div>
               <h2 className="text-xl font-semibold mb-6 text-foreground flex items-center gap-2">
                 <CheckSquare className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 From Collaborator ({tasksSharedWithMe.length} task{tasksSharedWithMe.length !== 1 ? 's' : ''})

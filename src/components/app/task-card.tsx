@@ -480,7 +480,7 @@ export function TaskCard({
           </div>
         )}
 
-        {sharedEmails.length > 0 && (
+            {sharedEmails.length > 0 && (
           <div
             className={cn(
               "border-b border-slate-200 dark:border-slate-800",
@@ -489,8 +489,8 @@ export function TaskCard({
             style={{ paddingBottom: "16px", margin: 0 }}
           >
             <p className="text-xs text-muted-foreground">
-              Shared with: {sharedEmails.join(", ")}
-            </p>
+                Shared with: {sharedEmails.join(", ")}
+              </p>
           </div>
         )}
 
