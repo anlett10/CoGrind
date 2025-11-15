@@ -57,9 +57,15 @@ Create a `.env.local` file in the root directory (if not already created by Conv
 ```env
 VITE_CONVEX_URL=your_convex_deployment_url
 VITE_CONVEX_SITE_URL=http://localhost:3000
+
+# Sentry Configuration (optional - already configured in wrangler.jsonc for production)
+VITE_SENTRY_DSN=https://0d7a623fe38a8dbb878a2806ec25ac6c@o4510366252793856.ingest.us.sentry.io/4510366266228736
+SENTRY_DSN=https://0d7a623fe38a8dbb878a2806ec25ac6c@o4510366252793856.ingest.us.sentry.io/4510366266228736
 ```
 
 Replace `your_convex_deployment_url` with your actual Convex deployment URL (usually starts with `https://` or `wss://`).
+
+**Note**: Sentry DSNs are already configured in `wrangler.jsonc` for Cloudflare Workers deployment. For local development, add them to `.env.local` if you want error tracking during development.
 
 ### 5. Run database migrations
 
@@ -147,24 +153,6 @@ bun run start
 - Clear the build cache: `rm -rf dist/`
 - Reinstall dependencies: `rm -rf node_modules && bun install`
 - Check TypeScript errors: `bun run build`
-
-## Deployment
-
-### Netlify Deployment
-
-For Netlify deployment:
-
-1. **Set Environment Variables in Netlify**:
-   - Go to Netlify Dashboard → Site Settings → Environment Variables
-   - Add: `VITE_CONVEX_URL` = Your Convex deployment URL
-   - Add: `VITE_CONVEX_SITE_URL` = Your Netlify site URL (e.g., `https://your-site.netlify.app`)
-
-2. **Build Configuration**:
-   - The `convex/_generated/` files are committed to the repository for CI/CD builds
-   - No Convex authentication is needed during the build process
-   - The build command in `netlify.toml` will run `vite build` directly
-
-**Note**: If you update your Convex schema, remember to regenerate and commit the `convex/_generated/` files by running `npx convex dev` locally.
 
 ## License
 

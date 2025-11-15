@@ -2,7 +2,6 @@
 .env.local
 .env
 .env.production
-.dev.vars
 
 # Dependencies
 node_modules/
@@ -37,10 +36,7 @@ yarn-error.log*
 # Generated files
 .convex/
 src/routeTree.gen.ts
-# convex/_generated/ - Committed for CI/CD builds (Netlify needs these files)
+convex/_generated/
 
 # Notes
 notes/
-
-# Local Netlify folder
-.netlify

@@ -18,6 +18,13 @@ import { fetchSession, getCookieName } from '@convex-dev/better-auth/react-start
 import { authClient } from "~/lib/auth-client";
 import { AppHeader } from "~/components/app/app-header";
 
+// Initialize Sentry on the server side
+if (typeof window === 'undefined') {
+  import('~/lib/sentry-server').catch(() => {
+    // Silently fail if Sentry can't be initialized
+  })
+}
+
 // Get auth information for SSR using available cookies
 const fetchAuth = createServerFn({ method: 'GET' }).handler(async () => {
   const { createAuth } = await import('../../convex/auth')

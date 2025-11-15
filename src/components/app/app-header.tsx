@@ -39,7 +39,7 @@ function AppLogo() {
           </span>
           <span className="text-[10px] font-medium tracking-wider text-muted-foreground/70 uppercase">
             Collaborate. Execute. Deliver.
-          </span>
+        </span>
         </div>
       </div>
     </div>

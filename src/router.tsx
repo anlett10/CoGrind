@@ -5,22 +5,12 @@ import { ConvexProvider, ConvexReactClient } from 'convex/react'
 import { ConvexQueryClient } from '@convex-dev/react-query'
 import { QueryClient } from '@tanstack/react-query'
 import { DefaultNotFound } from '~/components/app/default-not-found'
+import * as Sentry from '@sentry/tanstackstart-react'
 
 export function getRouter() {
-  // Try multiple ways to get the Convex URL for Cloudflare Workers compatibility
-  const CONVEX_URL = 
-    import.meta.env.VITE_CONVEX_URL ||
-    (typeof process !== 'undefined' && process.env?.VITE_CONVEX_URL) ||
-    null;
-  
+  const CONVEX_URL = import.meta.env.VITE_CONVEX_URL!
   if (!CONVEX_URL) {
-    const errorMsg = `missing VITE_CONVEX_URL environment variable. Available env vars: ${JSON.stringify({
-      hasViteConvexUrl: !!import.meta.env.VITE_CONVEX_URL,
-      hasProcessEnv: typeof process !== 'undefined',
-      envKeys: typeof process !== 'undefined' && process.env ? Object.keys(process.env).filter(k => k.includes('CONVEX')) : [],
-    })}`;
-    console.error(errorMsg);
-    throw new Error(errorMsg);
+    throw new Error('missing VITE_CONVEX_URL envar')
   }
   const convex = new ConvexReactClient(CONVEX_URL, {
     unsavedChangesWarning: false,
@@ -56,6 +46,29 @@ export function getRouter() {
     }),
     queryClient,
   )
+
+  // Initialize Sentry on the client side
+  if (!router.isServer) {
+    const sentryDsn = import.meta.env.VITE_SENTRY_DSN
+    if (sentryDsn) {
+      Sentry.init({
+        dsn: sentryDsn,
+        // Adds request headers and IP for users
+        sendDefaultPii: true,
+        integrations: [
+          Sentry.tanstackRouterBrowserTracingIntegration(router),
+          Sentry.replayIntegration(),
+        ],
+        // Set tracesSampleRate to 1.0 to capture 100% of transactions for tracing.
+        // We recommend adjusting this value in production.
+        tracesSampleRate: 1.0,
+        // Capture Replay for 10% of all sessions,
+        // plus for 100% of sessions with an error.
+        replaysSessionSampleRate: 0.1,
+        replaysOnErrorSampleRate: 1.0,
+      })
+    }
+  }
 
   return router
 }

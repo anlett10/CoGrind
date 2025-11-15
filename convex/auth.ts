@@ -11,15 +11,12 @@ function getEnvVar(key: string, fallback = ""): string {
 }
 
 // Get site URL for Better Auth baseURL
-// SITE_URL is a custom variable you can set in Convex Dashboard
-// CONVEX_SITE_URL is built-in and automatically set by Convex (don't try to override it)
 const siteUrl = getEnvVar("SITE_URL") || getEnvVar("CONVEX_SITE_URL") || "http://localhost:3000";
 
-// Log the site URL being used (for debugging)
-console.log("Better Auth baseURL:", siteUrl, {
-  hasCustomSiteUrl: !!process.env.SITE_URL,
-  hasBuiltInConvexSiteUrl: !!process.env.CONVEX_SITE_URL,
-});
+// Warn if CONVEX_SITE_URL is not set (required for Convex plugin)
+if (!process.env.CONVEX_SITE_URL) {
+  console.warn("CONVEX_SITE_URL is not set. This is required for the Convex plugin.");
+}
 
 // OAuth credentials (only used if both ID and secret are provided)
 const githubCredentials = {
@@ -41,9 +38,6 @@ function buildSocialProviders() {
       clientId: githubCredentials.id,
       clientSecret: githubCredentials.secret,
     };
-    console.log('GitHub OAuth provider configured');
-  } else {
-    console.warn('GitHub OAuth provider not configured - missing credentials');
   }
 
   if (googleCredentials.id && googleCredentials.secret) {
@@ -51,15 +45,8 @@ function buildSocialProviders() {
       clientId: googleCredentials.id,
       clientSecret: googleCredentials.secret,
     };
-    console.log('Google OAuth provider configured');
-  } else {
-    console.warn('Google OAuth provider not configured - missing credentials', {
-      hasId: !!googleCredentials.id,
-      hasSecret: !!googleCredentials.secret,
-    });
   }
 
-  console.log('Social providers configured:', Object.keys(providers));
   return providers;
 }
 
@@ -71,13 +58,6 @@ export const createAuth = (
   ctx: GenericCtx<DataModel>,
   { optionsOnly = false }: { optionsOnly?: boolean } = {}
 ) => {
-  const socialProviders = buildSocialProviders();
-  console.log('Creating Better Auth instance with:', {
-    baseURL: siteUrl,
-    socialProviders: Object.keys(socialProviders),
-    hasEmailPassword: true,
-  });
-  
   return betterAuth({
     logger: { disabled: optionsOnly },
     baseURL: siteUrl,
@@ -86,7 +66,7 @@ export const createAuth = (
       enabled: true,
       requireEmailVerification: false,
     },
-    socialProviders,
+    socialProviders: buildSocialProviders(),
     plugins: [convex()],
   });
 };

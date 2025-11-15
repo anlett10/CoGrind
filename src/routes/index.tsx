@@ -40,7 +40,7 @@ function HomeComponent() {
               <span className="bg-gradient-to-r from-blue-500 via-purple-500 via-pink-500 to-rose-500 bg-clip-text text-transparent drop-shadow-sm">
                 CoGrind
               </span>
-            </h1>
+          </h1>
             <p className="text-xl sm:text-2xl font-medium text-foreground/80 max-w-3xl mx-auto leading-relaxed">
               Streamline your workflow, collaborate seamlessly, and turn your ideas into reality.
             </p>
