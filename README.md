@@ -58,14 +58,12 @@ Create a `.env.local` file in the root directory (if not already created by Conv
 VITE_CONVEX_URL=your_convex_deployment_url
 VITE_CONVEX_SITE_URL=http://localhost:3000
 
-# Sentry Configuration (optional - already configured in wrangler.jsonc for production)
-VITE_SENTRY_DSN=https://0d7a623fe38a8dbb878a2806ec25ac6c@o4510366252793856.ingest.us.sentry.io/4510366266228736
-SENTRY_DSN=https://0d7a623fe38a8dbb878a2806ec25ac6c@o4510366252793856.ingest.us.sentry.io/4510366266228736
+# Sentry Configuration
+VITE_SENTRY_DSN=
+SENTRY_DSN=
 ```
 
-Replace `your_convex_deployment_url` with your actual Convex deployment URL (usually starts with `https://` or `wss://`).
-
-**Note**: Sentry DSNs are already configured in `wrangler.jsonc` for Cloudflare Workers deployment. For local development, add them to `.env.local` if you want error tracking during development.
+Replace `your_convex_deployment_url` with your actual Convex deployment URL
 
 ### 5. Run database migrations
 
@@ -105,7 +103,6 @@ bun run build
 This will:
 - Build the application
 - Type-check the codebase
-- Output to the `dist/` directory
 
 ### Start Production Server
 
@@ -147,12 +144,6 @@ bun run start
 - Ensure your `.env.local` file has the correct `VITE_CONVEX_URL`
 - Verify you're logged into Convex: `npx convex login`
 - Check that the Convex dev server is running: `npx convex dev`
-
-### Build errors
-
-- Clear the build cache: `rm -rf dist/`
-- Reinstall dependencies: `rm -rf node_modules && bun install`
-- Check TypeScript errors: `bun run build`
 
 ## License
 
