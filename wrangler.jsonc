@@ -3,9 +3,5 @@
     "name": "app",
     "compatibility_date": "2025-09-02",
     "compatibility_flags": ["nodejs_compat"],
-    "main": "@tanstack/react-start/server-entry",
-    "vars": {
-        "VITE_SENTRY_DSN": "https://0d7a623fe38a8dbb878a2806ec25ac6c@o4510366252793856.ingest.us.sentry.io/4510366266228736",
-        "SENTRY_DSN": "https://0d7a623fe38a8dbb878a2806ec25ac6c@o4510366252793856.ingest.us.sentry.io/4510366266228736"
-    }
+    "main": "@tanstack/react-start/server-entry"
   }

@@ -3,6 +3,9 @@
 .env
 .env.production
 
+# Deployment configuration
+wrangler.jsonc
+
 # Dependencies
 node_modules/
 bun.lockb
