@@ -394,7 +394,7 @@ export function AddTaskModal({ open, onOpenChange, projectId, initialTask }: Add
             </Button>
             <Button
               type="submit"
-              disabled={form.state.isSubmitting || !form.state.values.text.trim()}
+              disabled={form.state.isSubmitting || (!form.state.values.text.trim() && !initialTask?.text?.trim())}
               className="h-11"
             >
               {form.state.isSubmitting ? (

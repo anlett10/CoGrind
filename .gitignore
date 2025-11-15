@@ -43,3 +43,6 @@ convex/_generated/
 
 # Notes
 notes/
+
+# Local Netlify folder
+.netlify

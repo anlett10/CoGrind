@@ -46,9 +46,13 @@ bun install
    ```
 4. Link your project:
    ```bash
-   npx convex dev
+   npx convex dev --once
    ```
    This will create a `.env.local` file with your Convex deployment URL.
+5. Ready for local development:
+   ```bash
+   npx convex dev
+   ```
 
 ### 4. Configure environment variables
 
