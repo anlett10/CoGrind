@@ -11,7 +11,7 @@ const shimmerButtonVariants = cva(
     "text-sm font-medium whitespace-nowrap",
     "disabled:pointer-events-none disabled:opacity-50",
     "[&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0",
-    "bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 bg-[length:200%] animate-shimmer",
+    "bg-gradient-to-r from-blue-600 via-sky-600 to-blue-600 bg-[length:200%] animate-shimmer",
     "hover:shadow-lg hover:shadow-blue-500/25",
     "active:scale-95",
   ),

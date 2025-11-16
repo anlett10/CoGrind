@@ -108,7 +108,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body className="h-full">
         <AppHeader />
-        <main className="w-full">
+        <main className="w-full [view-transition-name:main-content]">
           {children}
         </main>
         <Scripts />

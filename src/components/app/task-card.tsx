@@ -462,7 +462,7 @@ export function TaskCard({
           )}
 
           {sharedEmails.length > 0 && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-200">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-200">
               <Users className="h-3.5 w-3.5" />
               Shared
             </span>

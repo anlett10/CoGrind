@@ -7,7 +7,7 @@ import { useSession } from './route'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 import { Input } from '~/components/ui/input'
-import { Plus, FolderKanban, Trash2, Pencil, CheckCircle2, Circle, Clock, Calendar, Link2, Users, Info, CheckSquare, FolderOpen, Sparkles, List, LayoutGrid } from 'lucide-react'
+import { Plus, FolderKanban, Trash2, Users, CheckSquare, FolderOpen, Sparkles, List, LayoutGrid } from 'lucide-react'
 import { Badge } from '~/components/ui/badge'
 import { AddProjectModal } from '~/components/app/add-project-modal'
 import { EditProjectModal } from '~/components/app/edit-project-modal'
@@ -611,7 +611,7 @@ function ProjectsPage() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <DockIcon
-                        className="bg-purple-600 text-white hover:bg-purple-700 dark:bg-purple-500 dark:text-white"
+                        className="bg-sky-600 text-white hover:bg-sky-700 dark:bg-sky-500 dark:text-white"
                         onClick={() => setIsImageAnalyticsOpen(true)}
                       >
                         <Sparkles className="h-4 w-4" />
@@ -650,7 +650,7 @@ function ProjectsPage() {
               <button
                 type="button"
                 onClick={() => setIsImageAnalyticsOpen(true)}
-                className="w-full inline-flex items-center justify-center sm:justify-start gap-2 sm:gap-3 px-2 sm:px-4 py-2 sm:py-3.5 bg-purple-600 dark:bg-purple-500 text-white hover:bg-purple-700 dark:hover:bg-purple-400 font-semibold rounded-lg sm:rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 text-xs sm:text-sm transform hover:scale-[1.02] hover:-translate-y-0.5 active:scale-[0.98]"
+                className="w-full inline-flex items-center justify-center sm:justify-start gap-2 sm:gap-3 px-2 sm:px-4 py-2 sm:py-3.5 bg-sky-600 dark:bg-sky-500 text-white hover:bg-sky-700 dark:hover:bg-sky-400 font-semibold rounded-lg sm:rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 text-xs sm:text-sm transform hover:scale-[1.02] hover:-translate-y-0.5 active:scale-[0.98]"
               >
                 <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center">
                   <Sparkles className="w-3.5 h-3.5" />

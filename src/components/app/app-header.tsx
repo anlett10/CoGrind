@@ -34,7 +34,7 @@ function AppLogo() {
 
       <div className="hidden sm:block flex-shrink-0">
         <div className="flex flex-col">
-          <span className="text-xl font-bold tracking-tight text-transparent bg-gradient-to-r from-blue-500 via-purple-500 via-pink-500 to-rose-500 bg-clip-text drop-shadow-sm">
+          <span className="text-xl font-bold tracking-tight text-transparent bg-gradient-to-r from-blue-500 via-sky-500 via-pink-500 to-rose-500 bg-clip-text drop-shadow-sm">
             CoGrind
           </span>
           <span className="text-[10px] font-medium tracking-wider text-muted-foreground/70 uppercase">
@@ -89,6 +89,26 @@ function NavigationLinks({
               key={to}
               to={to}
               onClick={onLinkClick}
+              viewTransition={{
+                types: ({ fromLocation }) => {
+                  // Going to home from any page: slide-right
+                  if (to === "/" && fromLocation?.href !== "/") {
+                    return ["slide-right"];
+                  }
+                  // Going from home to any page: slide-left
+                  if (fromLocation?.href === "/" && to !== "/") {
+                    return ["slide-left"];
+                  }
+                  // Going between pages: determine direction based on route order
+                  const routeOrder = ["/", "/project", "/live", "/refine"];
+                  const fromIndex = routeOrder.findIndex(route => fromLocation?.href === route);
+                  const toIndex = routeOrder.findIndex(route => to === route);
+                  if (fromIndex !== -1 && toIndex !== -1) {
+                    return toIndex > fromIndex ? ["slide-left"] : ["slide-right"];
+                  }
+                  return [];
+                },
+              }}
               className={cn(
                 "relative z-10 rounded-full px-3 py-2 text-sm font-semibold tracking-wide transition-all",
                 "hover:bg-foreground/10 hover:text-foreground",
@@ -135,6 +155,7 @@ function MobileNav() {
           <Link
             to="/"
             onClick={() => setIsOpen(false)}
+            viewTransition={{ types: ["slide-right"] }}
             className="flex items-center gap-3"
           >
             <AppLogo />
@@ -159,6 +180,7 @@ export function AppHeader() {
             <MobileNav />
             <Link
               to="/"
+              viewTransition={{ types: ["slide-right"] }}
               className="flex-shrink-0 rounded-full bg-background/60 p-1 transition-opacity duration-200 hover:opacity-90"
             >
               <AppLogo />

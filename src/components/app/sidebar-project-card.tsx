@@ -48,7 +48,7 @@ const getProjectStatusColor = (status: string) => {
     development: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
     alpha: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
     beta: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
-    "official-release": "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
+    "official-release": "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300",
   };
   return colors[status] || colors.planning;
 };
@@ -174,10 +174,10 @@ export function SidebarProjectCard({ project, isSelected, onSelect, onShowCollab
     const colors: Record<string, string> = {
       saas: "border-blue-200 text-blue-700 dark:border-blue-700 dark:text-blue-200",
       mobile: "border-green-200 text-green-700 dark:border-green-700 dark:text-green-200",
-      web: "border-purple-200 text-purple-700 dark:border-purple-700 dark:text-purple-200",
+      web: "border-sky-200 text-sky-700 dark:border-sky-700 dark:text-sky-200",
       desktop: "border-orange-200 text-orange-700 dark:border-orange-700 dark:text-orange-200",
       "open-source": "border-slate-200 text-slate-700 dark:border-slate-700 dark:text-slate-100",
-      library: "border-indigo-200 text-indigo-700 dark:border-indigo-700 dark:text-indigo-200",
+      library: "border-sky-200 text-sky-700 dark:border-sky-700 dark:text-sky-200",
       tool: "border-amber-200 text-amber-700 dark:border-amber-700 dark:text-amber-200",
       blog: "border-pink-200 text-pink-700 dark:border-pink-700 dark:text-pink-200",
       course: "border-teal-200 text-teal-700 dark:border-teal-700 dark:text-teal-200",

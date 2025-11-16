@@ -37,7 +37,7 @@ function HomeComponent() {
           <div className="text-center space-y-4">
             <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl md:text-6xl">
               Welcome to{" "}
-              <span className="bg-gradient-to-r from-blue-500 via-purple-500 via-pink-500 to-rose-500 bg-clip-text text-transparent drop-shadow-sm">
+              <span className="bg-gradient-to-r from-blue-500 via-sky-500 via-pink-500 to-rose-500 bg-clip-text text-transparent drop-shadow-sm">
                 CoGrind
               </span>
           </h1>
@@ -104,8 +104,8 @@ function HomeComponent() {
             <Card className="group border border-slate-200/80 dark:border-slate-800 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white dark:bg-slate-900">
               <CardHeader className="pb-4">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-900/40 dark:to-purple-800/40 shadow-sm group-hover:shadow-md transition-shadow">
-                    <MessageSquare className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-sky-100 to-sky-200 dark:from-sky-900/40 dark:to-sky-800/40 shadow-sm group-hover:shadow-md transition-shadow">
+                    <MessageSquare className="h-6 w-6 text-sky-600 dark:text-sky-400" />
                   </div>
                   <CardTitle className="text-xl font-semibold">Review page</CardTitle>
                 </div>
