@@ -97,31 +97,31 @@ export function EditProjectModal({
     onSubmit: async ({ value, formApi }) => {
       if (!project) {
         toast.error("Project is missing. Please reopen the modal.");
-      return;
-    }
+        return;
+      }
 
-    try {
-      await updateProject({
-        projectId: project._id as Id<"projects">,
+      try {
+        await updateProject({
+          projectId: project._id as Id<"projects">,
           name: value.name.trim(),
           description: value.description.trim(),
           status: value.status,
           githubUrl: value.githubUrl.trim() ? value.githubUrl.trim() : undefined,
-      });
-      
+        });
+        
         queryClient.invalidateQueries({
           predicate: (query) => {
-        const key = query.queryKey;
-        return Array.isArray(key) && (key[0] === api.projects.listProjects || key[0] === api.projects.getProject);
+            const key = query.queryKey;
+            return Array.isArray(key) && (key[0] === api.projects.listProjects || key[0] === api.projects.getProject);
           },
         });
-      
-      toast.success("Project updated successfully!");
+        
+        toast.success("Project updated successfully!");
         formApi.reset();
-      onOpenChange(false);
-    } catch (error) {
-      console.error("Failed to update project:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to update project. Please try again.");
+        onOpenChange(false);
+      } catch (error) {
+        console.error("Failed to update project:", error);
+        toast.error(error instanceof Error ? error.message : "Failed to update project. Please try again.");
       }
     },
   });
@@ -315,13 +315,25 @@ export function EditProjectModal({
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              disabled={form.state.isSubmitting || !form.state.values.name.trim()}
-              className="bg-black dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200"
+            <form.Subscribe
+              selector={(state) => ({
+                nameValue: state.values.name,
+                isSubmitting: state.isSubmitting,
+              })}
             >
-              {form.state.isSubmitting ? "Updating..." : "Update Project"}
-            </Button>
+              {({ nameValue, isSubmitting }) => {
+                const hasName = nameValue?.trim()?.length > 0
+                return (
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting || !hasName}
+                    className="bg-black dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200"
+                  >
+                    {isSubmitting ? "Updating..." : "Update Project"}
+                  </Button>
+                )
+              }}
+            </form.Subscribe>
           </DialogFooter>
         </form>
       </DialogContent>

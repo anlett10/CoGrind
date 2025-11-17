@@ -392,23 +392,35 @@ export function AddTaskModal({ open, onOpenChange, projectId, initialTask }: Add
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              disabled={form.state.isSubmitting || (!form.state.values.text.trim() && !initialTask?.text?.trim())}
-              className="h-11"
+            <form.Subscribe
+              selector={(state) => ({
+                textValue: state.values.text,
+                isSubmitting: state.isSubmitting,
+              })}
             >
-              {form.state.isSubmitting ? (
-                <>
-                  <span className="mr-2">Creating...</span>
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                </>
-              ) : (
-                <>
-                  <ListTodo className="mr-2 h-4 w-4" />
-                  Create Task
-                </>
-              )}
-            </Button>
+              {({ textValue, isSubmitting }) => {
+                const hasText = textValue?.trim()?.length > 0
+                return (
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting || !hasText}
+                    className="h-11"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <span className="mr-2">Creating...</span>
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      </>
+                    ) : (
+                      <>
+                        <ListTodo className="mr-2 h-4 w-4" />
+                        Create Task
+                      </>
+                    )}
+                  </Button>
+                )
+              }}
+            </form.Subscribe>
           </DialogFooter>
         </form>
       </DialogContent>

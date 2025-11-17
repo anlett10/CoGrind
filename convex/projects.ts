@@ -807,3 +807,44 @@ export const declineProjectInvitation = mutation({
   },
 });
 
+export const removeProjectCollaborator = mutation({
+  args: {
+    projectId: v.id("projects"),
+    collaboratorId: v.id("projectCollaborators"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    // Verify the user owns this project
+    if (project.userId !== identity.subject) {
+      throw new Error("Only project owners can remove collaborators");
+    }
+
+    const collaborator = await ctx.db.get(args.collaboratorId);
+    if (!collaborator) {
+      throw new Error("Collaborator not found");
+    }
+
+    // Verify the collaborator belongs to this project
+    if (collaborator.projectId !== args.projectId) {
+      throw new Error("Collaborator does not belong to this project");
+    }
+
+    // Prevent removing the owner
+    if (collaborator.userId === project.userId) {
+      throw new Error("Cannot remove the project owner");
+    }
+
+    await ctx.db.delete(args.collaboratorId);
+    return { success: true };
+  },
+});
+

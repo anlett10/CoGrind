@@ -28,7 +28,7 @@ import {
 import { Dock, DockIcon } from "~/components/magicui/dock"
 import { PendingInvitations } from "~/components/app/pending-invitations"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "~/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "~/components/ui/dialog"
 
 // Icon components for Dock
 const AddTaskIcon = (props: React.HTMLAttributes<SVGElement>) => (
@@ -1278,6 +1278,9 @@ export function ProjectCollaboratorsModal({
             <Sparkles className="h-5 w-5 text-gray-600 dark:text-gray-400" />
             Project Collaboration
           </DialogTitle>
+          <DialogDescription>
+            Manage collaborators and invitations for this project
+          </DialogDescription>
         </DialogHeader>
         <ProjectCollaborationPanel {...panelProps} />
       </DialogContent>
