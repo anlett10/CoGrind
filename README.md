@@ -5,7 +5,7 @@ A collaborative task management platform built with TanStack Start, Convex, and 
 ## Features
 
 - **Project Management**: Create projects and invite collaborators
-- **Task Management**: Create, assign, and share tasks with team members
+- **Task Management**: Create, and share tasks with collaborators
 - **Live Task Tracking**: Track time and manage active tasks in real-time
 - **Task Refinement**: Collaborate on task improvements with notes, questions, and updates
 - **Analyze Image**: AI-powered image analysis using Anthropic Claude Vision to extract insights and generate task descriptions from images
@@ -134,20 +134,18 @@ bun run start
 
 ## Key Technologies
 
-- **Frontend**: React 19, TanStack Start, TanStack Router
+- **Frontend**: React 19, TanStack Start
 - **Backend**: Convex (real-time database and serverless functions)
 - **Authentication**: Better Auth via Convex
-- **Styling**: Tailwind CSS
-- **UI Components**: Radix UI
-- **Icons**: Lucide React
+- **Styling**: ShadCN UI, Tailwind CSS
 - **Forms**: TanStack Form
 - **State Management**: React Query (via Convex React Query)
+- **Monitoring**: Sentry (Error tracking and performance monitoring)
 
-### Convex connection issues
+## Deployment
 
-- Ensure your `.env.local` file has the correct `VITE_CONVEX_URL`
-- Verify you're logged into Convex: `npx convex login`
-- Check that the Convex dev server is running: `npx convex dev`
+- [CloudFlare](https://cloudflare.com)
+- [Netlify](https://netlify.com)
 
 ## License
 
