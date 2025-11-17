@@ -1,13 +1,10 @@
-import { action, query } from "./_generated/server";
+import { action } from "./_generated/server";
 import type { ActionCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { Anthropic } from "@anthropic-ai/sdk";
-import { Agent, createTool, listMessages, syncStreams } from "@convex-dev/agent";
-import { vStreamArgs } from "@convex-dev/agent/validators";
-import { anthropic as anthropicModel } from "@ai-sdk/anthropic";
-import { z } from "zod";
-import { api, components } from "./_generated/api";
+import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { z } from "zod";
 import {
   ExtractedTaskSchema,
   ImageAnalysisSchema,
@@ -20,11 +17,6 @@ type TaskPriority = "low" | "medium" | "high";
 const ALLOWED_PRIORITIES = new Set(["low", "medium", "high"]);
 const SUPPORTED_IMAGE_MEDIA_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"] as const;
 type SupportedImageMediaType = (typeof SUPPORTED_IMAGE_MEDIA_TYPES)[number];
-
-const paginationOptsValidator = v.object({
-  cursor: v.union(v.string(), v.null()),
-  numItems: v.number(),
-});
 
 function createRandomId(): string {
   const cryptoGlobal = globalThis.crypto as
@@ -195,23 +187,6 @@ ${args.context ? `\nProject context: ${args.context}` : ""}`;
   };
 }
 
-const SuggestionTaskSchema = z.object({
-  text: z.string(),
-  priority: z.string().optional(),
-  status: z.string().optional(),
-});
-
-const TaskAnalysisSchema = z.object({
-  suggestedName: z.string().optional(),
-  suggestedPriority: z.enum(["low", "medium", "high"]).optional(),
-  estimatedTime: z.number().min(0.25).max(8).optional(),
-  suggestedSubtasks: z.array(z.string()).optional(),
-  suggestedTemplate: z.string().nullable().optional(),
-  productivityTips: z.array(z.string()).optional(),
-});
-
-const RelatedSubtasksSchema = z.array(z.string()).min(1).max(10);
-
 export const analyzeTaskImage = action({
   args: {
     imageDataUrl: v.string(),
@@ -227,245 +202,6 @@ export const analyzeTaskImage = action({
       imageDataUrl: args.imageDataUrl,
       context: args.context,
     });
-  },
-});
-
-const analyzeImageTool = createTool({
-  description:
-    "Analyze an uploaded image that contains planning or task information and return a structured summary of tasks, confidence, and effort estimates.",
-  args: z
-    .object({
-      imageDataUrl: z
-        .string()
-        .describe("Base64 data URL for the image to analyze. Provide only if storageId is not supplied.")
-        .optional(),
-      storageId: z
-        .string()
-        .describe(
-          "Identifier for previously uploaded image data stored via ctx.storage. Preferred for large payloads.",
-        )
-        .optional(),
-      context: z.string().describe("Additional project context to guide the analysis.").optional(),
-    })
-    .refine((value) => Boolean(value.imageDataUrl || value.storageId), {
-      message: "Provide either imageDataUrl or storageId.",
-    }),
-  handler: async (ctx, args) => {
-    "use node";
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-    let imageDataUrl = args.imageDataUrl;
-    if (!imageDataUrl && args.storageId) {
-      const stored = await ctx.storage.get(args.storageId as Id<"_storage">);
-      if (!stored) {
-        throw new Error("Stored image payload not found");
-      }
-      let arrayBuffer: ArrayBuffer;
-      if (stored instanceof ArrayBuffer) {
-        arrayBuffer = stored;
-      } else if (typeof (stored as Blob).arrayBuffer === "function") {
-        arrayBuffer = await (stored as Blob).arrayBuffer();
-      } else {
-        throw new Error("Unsupported stored payload type");
-      }
-      imageDataUrl = Buffer.from(arrayBuffer).toString("utf-8");
-      await ctx.storage.delete(args.storageId as Id<"_storage">).catch(() => undefined);
-    }
-    if (!imageDataUrl) {
-      throw new Error("Image data missing");
-    }
-    return performImageAnalysis({
-      imageDataUrl,
-      context: args.context,
-    });
-  },
-});
-
-const createTaskTool = createTool({
-  description:
-    "Create a new task in the current workspace. Use this after analyzing an image when the user confirms which tasks to add.",
-  args: z.object({
-    title: z.string().min(1).describe("Task title"),
-    details: z.string().describe("Task details").optional(),
-    priority: z.enum(["low", "medium", "high"]).describe("Task priority").optional(),
-    hrs: z.number().min(0).describe("Estimated hours").optional(),
-    projectId: z.string().describe("Project document ID").optional(),
-    refLink: z.string().describe("Reference link to attach to the task").optional(),
-  }),
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const projectId = args.projectId
-      ? (args.projectId as Id<"projects">)
-      : undefined;
-
-    const taskId = await ctx.runMutation(api.tasks.createTask, {
-      text: args.title,
-      details: args.details ?? "",
-      priority: ensurePriority(args.priority, "medium"),
-      status: "todo",
-      hrs: args.hrs ?? 1,
-      sharedWith: undefined,
-      refLink: args.refLink ?? "",
-      projectId,
-      trackedTimeMs: 0,
-      analysisData: undefined,
-    });
-
-    return {
-      taskId,
-      projectId: projectId ? String(projectId) : undefined,
-    };
-  },
-});
-
-const shareTaskTool = createTool({
-  description:
-    "Share an existing task with all collaborators on its project. Use this after creating tasks when sharing is requested.",
-  args: z.object({
-    taskId: z.string().describe("Task document ID to share"),
-  }),
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const result = await ctx.runMutation(
-      (api.tasks as any).shareTaskWithCollaborators,
-      {
-        taskId: args.taskId as Id<"tasks">,
-      },
-    );
-
-    return result;
-  },
-});
-
-const imageAnalysisAgent = new Agent(components.agent, {
-  name: "Image Analysis Planner",
-  languageModel: anthropicModel("claude-3-7-sonnet-20250219"),
-  instructions:
-    "You help product teams turn visual plans into actionable tasks. Always use the analyzeImage tool to inspect any provided image data. After analyzing, summarize the findings and return a structured JSON response that matches the requested schema. If the user explicitly asks to create or share tasks, use the createTask tool to add them and shareTask tool to share with collaborators. Do not invent details that the tools do not provide.",
-  tools: {
-    analyzeImage: analyzeImageTool,
-    createTask: createTaskTool,
-    shareTask: shareTaskTool,
-  },
-  maxSteps: 3,
-});
-
-export const createImageAnalysisThread = action({
-  args: {},
-  handler: async (ctx): Promise<{ threadId: string }> => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const { threadId } = await imageAnalysisAgent.createThread(ctx, {
-      userId: identity.subject,
-      title: "Image analysis session",
-    });
-
-    return { threadId };
-  },
-});
-
-export const runImageAnalysisAgent = action({
-  args: {
-    threadId: v.string(),
-    imageDataUrl: v.string(),
-    context: v.optional(v.string()),
-  },
-  handler: async (ctx, args): Promise<{ analysis: ImageAnalysis }> => {
-    "use node";
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const { thread } = await imageAnalysisAgent.continueThread(ctx, {
-      threadId: args.threadId,
-      userId: identity.subject,
-    });
-
-    const storageId = await ctx.storage.store(
-      new Blob([args.imageDataUrl], { type: "text/plain" }),
-    );
-    const storageKey = storageId as Id<"_storage">;
-    const storageKeyString = storageKey.toString();
-
-    const toolArgs = args.context
-      ? { storageId: storageKeyString, context: args.context }
-      : { storageId: storageKeyString };
-
-    await imageAnalysisAgent.saveMessage(ctx, {
-      threadId: args.threadId,
-      userId: identity.subject,
-      message: {
-        role: "user",
-        content: `Please analyze the uploaded image referenced by storageId “${storageKeyString}”${
-          args.context ? ` with context: ${args.context}` : ""
-        }. Always call the analyzeImage tool using that storageId.`,
-      },
-    });
-
-    try {
-      const result = await thread.generateObject(
-        {
-          schema: ImageAnalysisSchema,
-          system:
-            "You orchestrate image analysis for task planning. You must call the analyzeImage tool exactly once to inspect the uploaded image before responding.",
-          prompt: `Call the analyzeImage tool with the following arguments and wait for its response before replying. Always return JSON that conforms to the requested schema.\nTool arguments: ${JSON.stringify(
-            toolArgs,
-          )}`,
-        },
-        {
-          storageOptions: { saveMessages: "promptAndOutput" },
-        },
-      );
-
-      return {
-        analysis: result.object,
-      };
-    } finally {
-      await ctx.storage.delete(storageKey).catch(() => undefined);
-    }
-  },
-});
-
-export const listImageAnalysisThreadMessages = query({
-  args: {
-    threadId: v.string(),
-    paginationOpts: paginationOptsValidator,
-    streamArgs: vStreamArgs,
-  },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const messages = await listMessages(ctx, components.agent, {
-      threadId: args.threadId,
-      paginationOpts: args.paginationOpts,
-    });
-
-    const streams = await syncStreams(ctx, components.agent, {
-      threadId: args.threadId,
-      streamArgs: args.streamArgs,
-    });
-
-    return {
-      ...messages,
-      ...(streams ? { streams } : {}),
-    };
   },
 });
 

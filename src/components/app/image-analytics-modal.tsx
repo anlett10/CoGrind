@@ -14,21 +14,18 @@ import { Id } from "convex/_generated/dataModel";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select";
-import { DEFAULT_ANALYSIS_PRIORITY } from "~/types/task";
+import { useConvexAction } from "@convex-dev/react-query";
+import { api } from "convex/_generated/api";
+import { toast } from "sonner";
+import { ImageAnalysisResults } from "~/components/app/image-analysis-results";
+import { DEFAULT_ANALYSIS_PRIORITY, type ImageAnalysisResult, type ExtractedTask } from "~/types/task";
 
 interface ImageAnalyticsModalProps {
   isOpen: boolean;
   onClose: () => void;
   projectId?: Id<"projects">;
   projectName?: string;
-  onBeginSession: (payload: {
-    imageDataUrl: string;
-    context?: string;
-    defaultPriority: "low" | "medium" | "high";
-    defaultHours: number;
-    projectId?: Id<"projects">;
-    projectName?: string;
-  }) => void;
+  onTasksCreated?: (count: number) => void;
 }
 
 export function ImageAnalyticsModal({
@@ -36,7 +33,7 @@ export function ImageAnalyticsModal({
   onClose,
   projectId,
   projectName,
-  onBeginSession,
+  onTasksCreated,
 }: ImageAnalyticsModalProps) {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
@@ -44,6 +41,15 @@ export function ImageAnalyticsModal({
   const [defaultPriority, setDefaultPriority] = useState<"low" | "medium" | "high">(DEFAULT_ANALYSIS_PRIORITY);
   const [defaultHours, setDefaultHours] = useState(1);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [phase, setPhase] = useState<"upload" | "analyzing" | "results">("upload");
+  const [analysis, setAnalysis] = useState<ImageAnalysisResult | null>(null);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
+  const [isCreatingSelected, setIsCreatingSelected] = useState(false);
+  const [creatingTaskId, setCreatingTaskId] = useState<string | null>(null);
+
+  const analyzeTaskImage = useConvexAction((api.ai as any).analyzeTaskImage);
+  const createTasksFromImage = useConvexAction((api.ai as any).createTasksFromImage);
+  const createTaskFromImage = useConvexAction((api.ai as any).createTaskFromImage);
 
   useEffect(() => {
     if (!isOpen) {
@@ -53,6 +59,11 @@ export function ImageAnalyticsModal({
       setDefaultPriority(DEFAULT_ANALYSIS_PRIORITY);
       setDefaultHours(1);
       setErrorMessage(null);
+      setPhase("upload");
+      setAnalysis(null);
+      setSelectedTaskIds([]);
+      setCreatingTaskId(null);
+      setIsCreatingSelected(false);
     }
   }, [isOpen]);
 
@@ -85,22 +96,112 @@ export function ImageAnalyticsModal({
     setErrorMessage(null);
   }, []);
 
-  const handleBeginSession = useCallback(() => {
+  const normalizeAnalysisResult = useCallback(
+    (result: ImageAnalysisResult): ImageAnalysisResult => {
+      return {
+        summary: result.summary ?? "",
+        totalEstimatedHours: result.totalEstimatedHours ?? undefined,
+        confidence: result.confidence ?? undefined,
+        tasks: (result.tasks ?? []).map((task, index) => ({
+          ...task,
+          id: task.id || `task-${index + 1}`,
+          priority: task.priority ?? DEFAULT_ANALYSIS_PRIORITY,
+        })),
+      };
+    },
+    [],
+  );
+
+  const handleAnalyzeImage = useCallback(async () => {
     if (!imageDataUrl) {
       setErrorMessage("Upload an image before analyzing.");
       return;
     }
+    setErrorMessage(null);
+    setPhase("analyzing");
+    try {
+      const result = (await analyzeTaskImage({
+        imageDataUrl,
+        context: projectContext,
+      })) as ImageAnalysisResult;
+      const normalized = normalizeAnalysisResult(result);
+      setAnalysis(normalized);
+      setSelectedTaskIds(normalized.tasks.map((task) => task.id));
+      setPhase("results");
+    } catch (error) {
+      console.error("Failed to analyze image", error);
+      const message = error instanceof Error ? error.message : "Image analysis failed";
+      setErrorMessage(message);
+      toast.error(message);
+      setPhase("upload");
+    }
+  }, [analyzeTaskImage, imageDataUrl, projectContext, normalizeAnalysisResult]);
 
-    onBeginSession({
-      imageDataUrl,
-      context: projectContext,
-      defaultPriority,
-      defaultHours,
-      projectId,
-      projectName,
-    });
-    onClose();
-  }, [imageDataUrl, projectContext, defaultPriority, defaultHours, projectId, projectName, onBeginSession, onClose]);
+  const handleSelectAll = useCallback(() => {
+    if (!analysis) return;
+    setSelectedTaskIds(analysis.tasks.map((task) => task.id));
+  }, [analysis]);
+
+  const handleDeselectAll = useCallback(() => {
+    setSelectedTaskIds([]);
+  }, []);
+
+  const handleToggleTask = useCallback((taskId: string) => {
+    setSelectedTaskIds((current) => (current.includes(taskId) ? current.filter((id) => id !== taskId) : [...current, taskId]));
+  }, []);
+
+  const handleCreateSelected = useCallback(async () => {
+    if (!analysis || selectedTaskIds.length === 0) {
+      toast.info("Select at least one task to create.");
+      return;
+    }
+    setIsCreatingSelected(true);
+    try {
+      const result = (await createTasksFromImage({
+        analysis,
+        selectedTaskIds,
+        projectId,
+        defaultPriority,
+        defaultHrs: defaultHours,
+      })) as { count: number };
+      const count = result?.count ?? selectedTaskIds.length;
+      toast.success(count === 1 ? "Created 1 task from the analysis" : `Created ${count} tasks.`);
+      onTasksCreated?.(count);
+      onClose();
+    } catch (error) {
+      console.error("Failed to create tasks", error);
+      const message = error instanceof Error ? error.message : "Unable to create tasks";
+      toast.error(message);
+    } finally {
+      setIsCreatingSelected(false);
+    }
+  }, [analysis, selectedTaskIds, createTasksFromImage, projectId, defaultPriority, defaultHours, onTasksCreated, onClose]);
+
+  const handleCreateSingle = useCallback(
+    async (task: ExtractedTask) => {
+      if (!analysis) return;
+      setCreatingTaskId(task.id);
+      try {
+        await createTaskFromImage({
+          analysis,
+          task,
+          projectId,
+          defaultPriority,
+          defaultHrs: defaultHours,
+        });
+        toast.success(`Created task “${task.title}”`);
+        onTasksCreated?.(1);
+        setSelectedTaskIds((current) => current.filter((id) => id !== task.id));
+      } catch (error) {
+        console.error("Failed to create task", error);
+        const message = error instanceof Error ? error.message : "Unable to create task";
+        toast.error(message);
+      } finally {
+        setCreatingTaskId(null);
+      }
+    },
+    [analysis, createTaskFromImage, projectId, defaultPriority, defaultHours, onTasksCreated],
+  );
 
   const isAnalyzeDisabled = !selectedImage || !imageDataUrl;
 
@@ -127,7 +228,8 @@ export function ImageAnalyticsModal({
             </ol>
           </div>
 
-          <div className="space-y-4">
+          {phase !== "results" && (
+            <div className="space-y-4">
             <ImageUpload
               selectedImage={selectedImage}
               onImageSelect={handleImageSelect}
@@ -183,16 +285,59 @@ export function ImageAnalyticsModal({
                 <span>{errorMessage}</span>
               </div>
             )}
-          </div>
+            </div>
+          )}
+
+          {phase === "analyzing" && (
+            <div className="flex flex-1 flex-col items-center justify-center gap-3">
+              <Sparkles className="h-8 w-8 animate-pulse text-primary" />
+              <p className="text-sm text-muted-foreground">Analyzing your image…</p>
+            </div>
+          )}
+
+          {phase === "results" && analysis && (
+            <div className="px-2">
+              <ImageAnalysisResults
+                analysis={analysis}
+                selectedTaskIds={selectedTaskIds}
+                onToggleTask={handleToggleTask}
+                onSelectAll={handleSelectAll}
+                onDeselectAll={handleDeselectAll}
+                onCreateSelected={handleCreateSelected}
+                onCreateSingle={handleCreateSingle}
+                isCreatingSelected={isCreatingSelected}
+                creatingTaskId={creatingTaskId}
+                imagePreviewUrl={imageDataUrl}
+                defaultPriority={defaultPriority}
+                defaultHours={defaultHours}
+              />
+            </div>
+          )}
         </div>
 
-        <DialogFooter className="flex-shrink-0 flex items-center justify-end gap-2 pt-4">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleBeginSession} disabled={isAnalyzeDisabled}>
-            {isAnalyzeDisabled ? "Upload an image" : "Analyze image"}
-          </Button>
+        <DialogFooter className="flex-shrink-0 flex items-center justify-between gap-3 pt-4">
+          {phase === "results" && (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setPhase("upload");
+                setAnalysis(null);
+                setSelectedTaskIds([]);
+              }}
+            >
+              Start over
+            </Button>
+          )}
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={onClose}>
+              Close
+            </Button>
+            {phase !== "results" && (
+              <Button onClick={handleAnalyzeImage} disabled={isAnalyzeDisabled || phase === "analyzing"}>
+                {phase === "analyzing" ? "Analyzing…" : isAnalyzeDisabled ? "Upload an image" : "Analyze image"}
+              </Button>
+            )}
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

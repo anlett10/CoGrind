@@ -13,7 +13,6 @@ import { AddProjectModal } from '~/components/app/add-project-modal'
 import { EditProjectModal } from '~/components/app/edit-project-modal'
 import { AddTaskModal } from '~/components/app/add-task-modal'
 import { ImageAnalyticsModal } from '~/components/app/image-analytics-modal'
-import { ImageAnalysisSessionModal } from '~/components/app/image-analysis-session-modal'
 import { TaskCard, type TaskCardTask, type TaskEditForm, type TaskCardProject } from '~/components/app/task-card'
 import { SidebarProjectCard } from '~/components/app/sidebar-project-card'
 import { useQueryClient } from '@tanstack/react-query'
@@ -109,14 +108,6 @@ function ProjectsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false)
   const [isImageAnalyticsOpen, setIsImageAnalyticsOpen] = useState(false)
-  const [imageAnalysisSession, setImageAnalysisSession] = useState<{
-    imageDataUrl: string
-    context?: string
-    defaultPriority: 'low' | 'medium' | 'high'
-    defaultHours: number
-    projectId?: Id<'projects'>
-    projectName?: string
-  } | null>(null)
   const [selectedProjectId, setSelectedProjectId] = useState<Id<"projects"> | null>(null)
   const [filterProject, setFilterProject] = useState<'all' | 'none' | Id<"projects">>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -384,25 +375,6 @@ function ProjectsPage() {
       },
     })
   }, [queryClient])
-
-  const handleBeginImageAnalysisSession = useCallback(
-    (payload: {
-      imageDataUrl: string
-      context?: string
-      defaultPriority: 'low' | 'medium' | 'high'
-      defaultHours: number
-      projectId?: Id<'projects'>
-      projectName?: string
-    }) => {
-      setImageAnalysisSession(payload)
-      setIsImageAnalyticsOpen(false)
-    },
-    [],
-  )
-
-  const closeImageAnalysisSession = useCallback(() => {
-    setImageAnalysisSession(null)
-  }, [])
 
   const handleDeleteProject = async (project: Project) => {
     if (window.confirm(`Are you sure you want to delete "${project.name}"? This action cannot be undone.`)) {
@@ -1117,17 +1089,6 @@ function ProjectsPage() {
           onClose={() => setIsImageAnalyticsOpen(false)}
           projectId={selectedProject?._id ?? undefined}
           projectName={selectedProject?.name}
-          onBeginSession={handleBeginImageAnalysisSession}
-        />
-        <ImageAnalysisSessionModal
-          open={imageAnalysisSession !== null}
-          onClose={closeImageAnalysisSession}
-          imageDataUrl={imageAnalysisSession?.imageDataUrl ?? ''}
-          context={imageAnalysisSession?.context}
-          defaultPriority={imageAnalysisSession?.defaultPriority ?? 'medium'}
-          defaultHours={imageAnalysisSession?.defaultHours ?? 1}
-          projectId={imageAnalysisSession?.projectId}
-          projectName={imageAnalysisSession?.projectName}
           onTasksCreated={handleImageAnalysisTasksCreated}
         />
         {editingProject && (
